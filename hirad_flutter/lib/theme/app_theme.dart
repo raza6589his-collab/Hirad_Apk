@@ -70,7 +70,7 @@ class AppTheme {
       elevation: 0,
       scrolledUnderElevation: 1,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.lightCard,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -97,7 +97,7 @@ class AppTheme {
       elevation: 0,
       scrolledUnderElevation: 1,
     ),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.darkCard,
       elevation: 0,
       shape: RoundedRectangleBorder(
