@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Release APK
@@ -46,10 +49,41 @@ jobs:
         working-directory: ./hirad_flutter
         run: flutter build apk --release
 
+      - name: Prepare Release APK File
+        run: |
+          cp hirad_flutter/build/app/outputs/flutter-apk/app-release.apk Hirad-Fitness-Club-v1.0.0.apk
+
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: Hirad-Fitness-Club-Release-APK
-          path: hirad_flutter/build/app/outputs/flutter-apk/app-release.apk
+          path: Hirad-Fitness-Club-v1.0.0.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "اپلیکیشن باشگاه هیراد نسخه 1.0.0 (Hirad Fitness APK)"
+          draft: false
+          prerelease: false
+          body: |
+            ## اپلیکیشن مدیریت باشگاه بدنسازی هیراد (نسخه ۱.۰.۰)
+
+            فایل نصبی اندروید (APK) کاملاً بومی و نیتیو (Flutter).
+
+            ### ویژگی‌های کلیدی:
+            - 🏋️‍♂️ **ثبت و مدیریت کامل ورزشکاران باشگاه** (فرم ثبت‌نام، پروفایل و ویرایش)
+            - 📅 **تقویم شمسی جلالی** در تمامی بخش‌ها و محاسبات تاریخ
+            - 🇮🇷 **رابط کاربری کاملاً فارسی و راست‌چین (RTL)**
+            - 💳 **محاسبات مالی، شهریه پرداختی و بدهی**
+            - 🌓 **پشتیبانی کامل از تم روشن و تاریک (Dark / Light)**
+            - ⚡ **بدون نیاز به اینترنت و کارکرد کاملاً آفلاین و سریع**
+
+            ---
+            ### ⬇️ دانلود مستقیم فایل نصبی:
+            فایل **`Hirad-Fitness-Club-v1.0.0.apk`** را از بخش Assets در زیر دانلود کرده و روی گوشی اندروید نصب کنید.
+          files: Hirad-Fitness-Club-v1.0.0.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
