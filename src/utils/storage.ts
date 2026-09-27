@@ -6,12 +6,39 @@ export function getStoredAthletes(): Athlete[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Default to empty roster for real production use by the coach
       localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
       return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    // Ensure backwards compatibility with newly added fields
+    return parsed.map((ath: any): Athlete => {
+      const monthlyFee = ath.monthlyFee || (ath.tuitionPaid || 0) + (ath.tuitionUnpaid || 0) || 1500000;
+      const payments = Array.isArray(ath.payments)
+        ? ath.payments
+        : (ath.tuitionPaid || 0) > 0
+        ? [
+            {
+              id: 'init-payment-' + ath.id,
+              date: ath.registrationDate || '۱۴۰۳/۰۱/۰۱',
+              amount: ath.tuitionPaid,
+              type: 'payment',
+              title: 'پرداخت اولیه هنگام ثبت‌نام',
+            },
+          ]
+        : [];
+      const attendances = Array.isArray(ath.attendances) ? ath.attendances : [];
+
+      return {
+        ...ath,
+        monthlyFee,
+        tuitionPaid: ath.tuitionPaid || 0,
+        tuitionUnpaid: typeof ath.tuitionUnpaid === 'number' ? ath.tuitionUnpaid : Math.max(0, monthlyFee - (ath.tuitionPaid || 0)),
+        payments,
+        attendances,
+      };
+    });
   } catch (err) {
     console.error('Failed to read from localStorage:', err);
     return [];

@@ -13,6 +13,8 @@ import {
   Users,
   CheckCircle2,
   RefreshCw,
+  UserCheck,
+  Bell,
 } from 'lucide-react';
 import { Athlete, SortOption, PaymentFilter } from '../types/athlete';
 import { Avatar } from './Avatar';
@@ -25,6 +27,8 @@ interface AthleteListProps {
   onSelectAthlete: (athlete: Athlete) => void;
   onOpenAddModal: () => void;
   onDeleteAthlete: (athlete: Athlete) => void;
+  onOpenAttendance?: () => void;
+  onOpenUpdates?: () => void;
   newlyAddedId: string | null;
   onRefresh: () => Promise<void>;
 }
@@ -42,6 +46,8 @@ export const AthleteList: React.FC<AthleteListProps> = ({
   onSelectAthlete,
   onOpenAddModal,
   onDeleteAthlete,
+  onOpenAttendance,
+  onOpenUpdates,
   newlyAddedId,
   onRefresh,
 }) => {
@@ -211,6 +217,18 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               <Search className="w-5 h-5" />
             </button>
 
+            {/* Quick Attendance Check-in Button */}
+            {onOpenAttendance && (
+              <button
+                type="button"
+                onClick={onOpenAttendance}
+                className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center border border-emerald-500/20 active:scale-95 transition-all shadow-sm"
+                title="ثبت سریع حضور ورزشکار با کد ملی"
+              >
+                <UserCheck className="w-5 h-5" />
+              </button>
+            )}
+
             {/* Sort & Filter Button */}
             <button
               type="button"
@@ -237,6 +255,19 @@ export const AthleteList: React.FC<AthleteListProps> = ({
             >
               <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
+
+            {/* New Version Update Notification Bell */}
+            {onOpenUpdates && (
+              <button
+                type="button"
+                onClick={onOpenUpdates}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors relative"
+                title="اعلان نسخه جدید برنامه (دانلود APK)"
+              >
+                <Bell className="w-4 h-4 text-brand-500 animate-bounce" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-darkCard" />
+              </button>
+            )}
 
             {/* Refresh Button */}
             <button
@@ -629,9 +660,16 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                                   ath.registrationDate.split('/')[2]
                               )}
                             </span>
-                            <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-darkBorder px-1.5 py-0.5 rounded font-medium">
-                              {ath.trainingCategory?.split(' ')[0] || 'بدنسازی'}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              {ath.attendances && ath.attendances.length > 0 && (
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded font-bold border border-emerald-500/20">
+                                  {toPersianDigits(ath.attendances.length)} جلسه
+                                </span>
+                              )}
+                              <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-darkBorder px-1.5 py-0.5 rounded font-medium">
+                                {ath.trainingCategory?.split(' ')[0] || 'بدنسازی'}
+                              </span>
+                            </div>
                           </div>
                         </motion.div>
                       </div>

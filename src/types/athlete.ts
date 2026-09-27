@@ -9,6 +9,23 @@ export const TRAINING_CATEGORIES = [
 
 export type TrainingCategory = typeof TRAINING_CATEGORIES[number];
 
+export interface PaymentRecord {
+  id: string;
+  date: string; // تاریخ شمسی (مثلاً ۱۴۰۳/۰۷/۰۶)
+  amount: number; // مبلغ به تومان
+  type: 'payment' | 'charge'; // پرداخت شده یا بدهی دوره جدید
+  title: string; // عنوان (مثلاً شهریه مهرماه، واریز کارت به کارت)
+  note?: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  date: string; // تاریخ شمسی (۱۴۰۳/۰۷/۰۶)
+  time: string; // ساعت (۱۸:۳۰)
+  sessionNumber: number; // شماره جلسه
+  note?: string;
+}
+
 export interface Athlete {
   id: string;
   firstName: string; // نام
@@ -18,9 +35,12 @@ export interface Athlete {
   nationalId: string; // کد ملی (10 رقم با اعتبارسنجی الگوریتم رسمی)
   birthDate: string; // تاریخ تولد جلالی (مثلا: ۱۳۷۸/۰۵/۱۴)
   registrationDate: string; // تاریخ ثبت‌نام جلالی (پیش‌فرض امروز)
-  trainingCategory: TrainingCategory; // رشته و برنامه تمرینی (رسمی و قابل ویرایش)
-  tuitionPaid: number; // شهریه پرداخت شده (تومان)
-  tuitionUnpaid?: number; // شهریه باقی‌مانده / بدهی (اختیاری)
+  trainingCategory: TrainingCategory; // رشته و برنامه تمرینی
+  monthlyFee: number; // شهریه ماه جاری / مبلغ مصوب هر دوره (تومان)
+  tuitionPaid: number; // کل مبالغ پرداخت شده (تومان)
+  tuitionUnpaid?: number; // شهریه باقی‌مانده / بدهی (محاسبه خودکار)
+  payments?: PaymentRecord[]; // تاریخچه پرداخت‌ها و شهریه‌ها
+  attendances?: AttendanceRecord[]; // سوابق و تاریخ‌های جلسات حضور
   lastUpdated: string; // ISO timestamp
   notes?: string; // یادداشت مربی یا شرایط بدنی
 }

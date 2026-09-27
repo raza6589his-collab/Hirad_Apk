@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Athlete } from './types/athlete';
+import { Athlete, AttendanceRecord } from './types/athlete';
 import { getStoredAthletes, saveStoredAthletes } from './utils/storage';
 import { AthleteList } from './components/AthleteList';
 import { AthleteProfile } from './components/AthleteProfile';
 import { RegistrationModal } from './components/RegistrationModal';
+import { QuickAttendanceModal } from './components/QuickAttendanceModal';
+import { UpdateNotificationModal } from './components/UpdateNotificationModal';
 import { Toast, ToastMessage } from './components/Toast';
 import confetti from 'canvas-confetti';
 
@@ -13,6 +15,8 @@ export const App: React.FC = () => {
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null);
+  const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
+  const [isUpdateNotificationOpen, setIsUpdateNotificationOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
 
@@ -20,6 +24,16 @@ export const App: React.FC = () => {
   useEffect(() => {
     const data = getStoredAthletes();
     setAthletes(data);
+
+    // Show new version update notification to the coach
+    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_1_update');
+    if (!hasSeenUpdate) {
+      const timer = setTimeout(() => {
+        setIsUpdateNotificationOpen(true);
+        sessionStorage.setItem('hirad_seen_v1_1_update', 'true');
+      }, 700);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   // Sync to storage whenever athletes change
@@ -46,25 +60,39 @@ export const App: React.FC = () => {
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     if (id) {
-      // Edit existing
+      // Edit existing - preserve past payments & attendance history!
       const updatedList = athletes.map((a) => {
         if (a.id === id) {
           return {
             ...a,
             ...athleteData,
+            payments: a.payments || [],
+            attendances: a.attendances || [],
             lastUpdated: new Date().toISOString(),
           };
         }
         return a;
       });
       updateAthletes(updatedList);
-      showToast('success', 'اطلاعات ورزشکار با موفقیت به‌روزرسانی شد');
+      showToast('success', 'اطلاعات پرونده ورزشکار با موفقیت به‌روزرسانی شد');
     } else {
       // Add new athlete
       const newId = `ath-${Date.now()}`;
+      const initialPayments = athleteData.tuitionPaid > 0 ? [
+        {
+          id: `pay-${Date.now()}`,
+          date: athleteData.registrationDate,
+          amount: athleteData.tuitionPaid,
+          type: 'payment' as const,
+          title: 'پرداخت اولیه هنگام ثبت‌نام',
+        }
+      ] : [];
+
       const newRecord: Athlete = {
         ...athleteData,
         id: newId,
+        payments: initialPayments,
+        attendances: [],
         lastUpdated: new Date().toISOString(),
       };
       const updatedList = [newRecord, ...athletes];
@@ -83,13 +111,38 @@ export const App: React.FC = () => {
         // Safe fallback
       }
 
-      showToast('success', 'ورزشکار جدید با موفقیت ثبت شد');
+      showToast('success', 'ورزشکار جدید با موفقیت در باشگاه هیراد ثبت شد');
 
-      // Clear highlight after animation completes
       setTimeout(() => {
         setNewlyAddedId(null);
       }, 1200);
     }
+  };
+
+  // Instant attendance registration via national code
+  const handleRecordAttendance = (athleteId: string, attendance: AttendanceRecord) => {
+    const updatedList = athletes.map((a) => {
+      if (a.id === athleteId) {
+        return {
+          ...a,
+          attendances: [attendance, ...(a.attendances || [])],
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+      return a;
+    });
+    updateAthletes(updatedList);
+
+    const ath = athletes.find((a) => a.id === athleteId);
+    showToast(
+      'success',
+      `حضور ${ath ? `${ath.firstName} ${ath.lastName}` : 'ورزشکار'} برای جلسه شماره ${attendance.sessionNumber} ثبت گردید ✅`
+    );
+  };
+
+  const handleUpdateSingleAthlete = (updated: Athlete) => {
+    const updatedList = athletes.map((a) => (a.id === updated.id ? updated : a));
+    updateAthletes(updatedList);
   };
 
   const handleDeleteAthlete = (athlete: Athlete) => {
@@ -132,6 +185,7 @@ export const App: React.FC = () => {
                   setIsRegistrationOpen(true);
                 }}
                 onDelete={handleDeleteAthlete}
+                onUpdate={handleUpdateSingleAthlete}
               />
             </motion.div>
           ) : (
@@ -151,6 +205,8 @@ export const App: React.FC = () => {
                   setIsRegistrationOpen(true);
                 }}
                 onDeleteAthlete={handleDeleteAthlete}
+                onOpenAttendance={() => setIsAttendanceOpen(true)}
+                onOpenUpdates={() => setIsUpdateNotificationOpen(true)}
                 newlyAddedId={newlyAddedId}
                 onRefresh={handleRefresh}
               />
@@ -167,6 +223,26 @@ export const App: React.FC = () => {
           }}
           onSave={handleSaveAthlete}
           editAthlete={editingAthlete}
+        />
+
+        {/* Quick Attendance Check-in Modal (National ID lookup) */}
+        <QuickAttendanceModal
+          isOpen={isAttendanceOpen}
+          onClose={() => setIsAttendanceOpen(false)}
+          athletes={athletes}
+          onRecordAttendance={handleRecordAttendance}
+          onRegisterNewAthlete={(prefilledNatId) => {
+            setEditingAthlete(null);
+            setIsRegistrationOpen(true);
+          }}
+        />
+
+        {/* In-App New Version Update Notification Modal */}
+        <UpdateNotificationModal
+          isOpen={isUpdateNotificationOpen}
+          onClose={() => setIsUpdateNotificationOpen(false)}
+          currentVersion="1.0.0"
+          newVersion="1.1.0"
         />
 
         {/* Global Toast Messages */}

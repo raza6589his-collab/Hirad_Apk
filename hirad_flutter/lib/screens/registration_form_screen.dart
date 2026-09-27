@@ -22,14 +22,18 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
   late final TextEditingController _lastNameController;
   late final TextEditingController _mobileController;
   late final TextEditingController _nationalCodeController;
+  late final TextEditingController _monthlyFeeController;
   late final TextEditingController _tuitionPaidController;
   late final TextEditingController _tuitionUnpaidController;
+  late final TextEditingController _birthDateController;
   late final TextEditingController _notesController;
 
   late String _birthDate;
   late String _registrationDate;
   late String _trainingCategory;
   String? _photoPath;
+  bool _directBirthInput = false;
+  bool _autoCalculateDebt = true;
 
   bool _isSubmitting = false;
 
@@ -43,22 +47,29 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
     _lastNameController = TextEditingController(text: edit?.lastName ?? '');
     _mobileController = TextEditingController(text: edit?.mobileNumber ?? '');
     _nationalCodeController = TextEditingController(text: edit?.nationalCode ?? '');
+
+    final mFee = edit?.monthlyFee ?? 2000000;
+    final tPaid = edit?.tuitionPaid ?? 2000000;
+    final tUnpaid = edit?.tuitionUnpaid ?? 0;
+
+    _monthlyFeeController = TextEditingController(
+      text: ValidationUtils.formatCurrencyToman(mFee, includeUnit: false),
+    );
     _tuitionPaidController = TextEditingController(
-      text: edit != null
-          ? ValidationUtils.formatCurrencyToman(edit.tuitionPaid, includeUnit: false)
-          : '۱,۵۰۰,۰۰۰',
+      text: ValidationUtils.formatCurrencyToman(tPaid, includeUnit: false),
     );
     _tuitionUnpaidController = TextEditingController(
-      text: edit?.tuitionUnpaid != null && edit!.tuitionUnpaid! > 0
-          ? ValidationUtils.formatCurrencyToman(edit.tuitionUnpaid, includeUnit: false)
-          : '',
+      text: tUnpaid > 0
+          ? ValidationUtils.formatCurrencyToman(tUnpaid, includeUnit: false)
+          : '0',
     );
-    _notesController = TextEditingController(text: edit?.notes ?? '');
 
     _birthDate = edit?.birthDateJalali ?? '1375/01/01';
+    _birthDateController = TextEditingController(text: _birthDate);
     _registrationDate = edit?.registrationDateJalali ?? today.formatted;
     _trainingCategory = edit?.trainingCategory ?? 'بدنسازی عمومی';
     _photoPath = edit?.photoPath;
+    _notesController = TextEditingController(text: edit?.notes ?? '');
   }
 
   @override
@@ -67,10 +78,32 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
     _lastNameController.dispose();
     _mobileController.dispose();
     _nationalCodeController.dispose();
+    _monthlyFeeController.dispose();
     _tuitionPaidController.dispose();
     _tuitionUnpaidController.dispose();
+    _birthDateController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _onFeeChanged(String val) {
+    if (_autoCalculateDebt) {
+      final fee = ValidationUtils.parseNumberInput(_monthlyFeeController.text);
+      final paid = ValidationUtils.parseNumberInput(_tuitionPaidController.text);
+      final rem = fee > paid ? fee - paid : 0;
+      _tuitionUnpaidController.text =
+          ValidationUtils.formatCurrencyToman(rem, includeUnit: false);
+    }
+  }
+
+  void _onPaidChanged(String val) {
+    if (_autoCalculateDebt) {
+      final fee = ValidationUtils.parseNumberInput(_monthlyFeeController.text);
+      final paid = ValidationUtils.parseNumberInput(_tuitionPaidController.text);
+      final rem = fee > paid ? fee - paid : 0;
+      _tuitionUnpaidController.text =
+          ValidationUtils.formatCurrencyToman(rem, includeUnit: false);
+    }
   }
 
   void _pickBirthDate() async {
@@ -84,7 +117,10 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
       ),
     );
     if (picked != null) {
-      setState(() => _birthDate = picked);
+      setState(() {
+        _birthDate = picked;
+        _birthDateController.text = picked;
+      });
     }
   }
 
@@ -111,10 +147,15 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
 
     final cleanMobile = ValidationUtils.toEnglishDigits(_mobileController.text.trim());
     final cleanNat = ValidationUtils.toEnglishDigits(_nationalCodeController.text.trim());
+    final mFee = ValidationUtils.parseNumberInput(_monthlyFeeController.text);
     final paid = ValidationUtils.parseNumberInput(_tuitionPaidController.text);
     final unpaid = _tuitionUnpaidController.text.trim().isNotEmpty
         ? ValidationUtils.parseNumberInput(_tuitionUnpaidController.text)
         : 0;
+
+    final birth = _directBirthInput
+        ? ValidationUtils.toEnglishDigits(_birthDateController.text.trim())
+        : _birthDate;
 
     final athlete = Athlete(
       id: widget.editAthlete?.id ?? const Uuid().v4(),
@@ -123,11 +164,25 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
       photoPath: _photoPath,
       mobileNumber: cleanMobile,
       nationalCode: cleanNat,
-      birthDateJalali: _birthDate,
+      birthDateJalali: birth,
       registrationDateJalali: _registrationDate,
       trainingCategory: _trainingCategory,
+      monthlyFee: mFee,
       tuitionPaid: paid,
       tuitionUnpaid: unpaid,
+      payments: widget.editAthlete?.payments ??
+          (paid > 0
+              ? [
+                  PaymentRecord(
+                    id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
+                    date: _registrationDate,
+                    amount: paid,
+                    type: 'payment',
+                    title: 'پرداخت اولیه هنگام ثبت‌نام',
+                  )
+                ]
+              : []),
+      attendances: widget.editAthlete?.attendances ?? [],
       lastUpdated: DateTime.now(),
       notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
     );
@@ -141,12 +196,13 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isEditing = widget.editAthlete != null;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Container(
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.92,
+          maxHeight: MediaQuery.of(context).size.height * 0.94,
         ),
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkCard : Colors.white,
@@ -160,11 +216,11 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
               child: Column(
                 children: [
                   Container(
-                    width: 44,
+                    width: 40,
                     height: 5,
                     decoration: BoxDecoration(
                       color: Colors.grey[400],
-                      borderRadius: BorderRadius.circular(AppRadius.full),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -184,7 +240,7 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                           const SizedBox(width: 8),
                           Text(
                             isEditing ? 'ویرایش پرونده ورزشکار' : 'ثبت ورزشکار جدید',
-                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -199,15 +255,68 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
             ),
             const Divider(height: 1),
 
-            // Form Body
+            // Scrollable Form Body with dynamic bottom padding so keyboard doesn't cover tuition
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 100),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      // Photo Upload Avatar
+                      Center(
+                        child: InkWell(
+                          onTap: () {
+                            // Toggle sample photo or custom avatar
+                            setState(() {
+                              _photoPath = _photoPath == null
+                                  ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'
+                                  : null;
+                            });
+                          },
+                          borderRadius: BorderRadius.circular(50),
+                          child: Container(
+                            width: 88,
+                            height: 88,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _photoPath != null
+                                  ? Colors.transparent
+                                  : (isDark ? AppColors.darkSubtle : AppColors.brand50),
+                              border: Border.all(
+                                color: AppColors.brand500,
+                                width: 2,
+                              ),
+                            ),
+                            child: _photoPath != null
+                                ? ClipOval(
+                                    child: Image.network(
+                                      _photoPath!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 40),
+                                    ),
+                                  )
+                                : Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(Icons.camera_alt, color: AppColors.brand500, size: 28),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'انتخاب عکس',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.brand500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
                       // Section 1: Personal Info
                       _buildSectionHeader(Icons.person, 'مشخصات فردی'),
                       const SizedBox(height: 12),
@@ -216,12 +325,14 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _firstNameController,
+                              scrollPadding: const EdgeInsets.only(bottom: 120),
                               decoration: const InputDecoration(
                                 labelText: 'نام *',
+                                hintText: 'مثال: علی',
                                 border: OutlineInputBorder(),
                               ),
                               validator: (v) {
-                                final res = ValidationUtils.validateName(v, 'نام');
+                                final res = ValidationUtils.validateName(v ?? '', 'نام');
                                 return res.isValid ? null : res.error;
                               },
                             ),
@@ -230,116 +341,202 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                           Expanded(
                             child: TextFormField(
                               controller: _lastNameController,
+                              scrollPadding: const EdgeInsets.only(bottom: 120),
                               decoration: const InputDecoration(
                                 labelText: 'نام خانوادگی *',
+                                hintText: 'مثال: محمدی',
                                 border: OutlineInputBorder(),
                               ),
                               validator: (v) {
-                                final res = ValidationUtils.validateName(v, 'نام خانوادگی');
+                                final res = ValidationUtils.validateName(v ?? '', 'نام خانوادگی');
                                 return res.isValid ? null : res.error;
                               },
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
-                      // Birth Date Button
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          side: BorderSide(
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      // Date of Birth with Fast Selection & Direct Typing
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'تاریخ تولد (شمسی) *',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          TextButton.icon(
+                            icon: Icon(
+                              _directBirthInput ? Icons.calendar_month : Icons.edit,
+                              size: 14,
+                            ),
+                            label: Text(
+                              _directBirthInput ? 'انتخاب از تقویم' : 'تایپ مستقیم تاریخ',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _directBirthInput = !_directBirthInput;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      if (_directBirthInput)
+                        TextFormField(
+                          controller: _birthDateController,
+                          keyboardType: TextInputType.number,
+                          textDirection: TextDirection.ltr,
+                          scrollPadding: const EdgeInsets.only(bottom: 120),
+                          decoration: const InputDecoration(
+                            hintText: '1378/05/14',
+                            prefixIcon: Icon(Icons.calendar_today, size: 18),
+                            border: OutlineInputBorder(),
+                          ),
+                        )
+                      else
+                        InkWell(
+                          onTap: _pickBirthDate,
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.calendar_today, color: AppColors.brand500),
+                            ),
+                            child: Text(
+                              JalaliUtils.formatJalaliPretty(_birthDate),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
                         ),
-                        leading: const Icon(Icons.cake, color: AppColors.brand500),
-                        title: const Text('تاریخ تولد (شمسی) *', style: TextStyle(fontSize: 12)),
-                        subtitle: Text(
-                          JalaliUtils.formatJalaliPretty(_birthDate),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        trailing: const Icon(Icons.calendar_month, color: AppColors.brand500),
-                        onTap: _pickBirthDate,
-                      ),
                       const SizedBox(height: 20),
 
                       // Section 2: Contact & Identification
-                      _buildSectionHeader(Icons.contact_phone, 'اطلاعات تماس و هویتی'),
+                      _buildSectionHeader(Icons.contact_phone, 'اطلاعات تماس و هویت'),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _mobileController,
                         keyboardType: TextInputType.phone,
                         textDirection: TextDirection.ltr,
+                        scrollPadding: const EdgeInsets.only(bottom: 120),
                         decoration: const InputDecoration(
                           labelText: 'شماره موبایل *',
                           hintText: '09123456789',
-                          prefixIcon: Icon(Icons.phone),
+                          prefixIcon: Icon(Icons.phone_android),
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) {
-                          final res = ValidationUtils.validateMobileNumber(v);
+                          final res = ValidationUtils.validateMobileNumber(v ?? '');
                           return res.isValid ? null : res.error;
                         },
                       ),
-                      const SizedBox(height: 14),
-
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: _nationalCodeController,
                         keyboardType: TextInputType.number,
                         textDirection: TextDirection.ltr,
+                        scrollPadding: const EdgeInsets.only(bottom: 120),
                         decoration: const InputDecoration(
-                          labelText: 'کد ملی (۱۰ رقم با اعتبارسنجی ثبت‌احوال) *',
+                          labelText: 'کد ملی (۱۰ رقم با اعتبارسنجی ثبت احوال) *',
                           hintText: '0012345679',
-                          prefixIcon: Icon(Icons.badge),
+                          prefixIcon: Icon(Icons.credit_card),
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) {
-                          final res = ValidationUtils.validateNationalId(v);
+                          final res = ValidationUtils.validateNationalCode(v ?? '');
                           return res.isValid ? null : res.error;
                         },
                       ),
                       const SizedBox(height: 20),
 
-                      // Section 3: Training Category & Registration Date
-                      _buildSectionHeader(Icons.fitness_center, 'دوره و عضویت در باشگاه'),
+                      // Section 3: Training Category & Dates
+                      _buildSectionHeader(Icons.fitness_center, 'رشته و دوره عضویت'),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
                         value: _trainingCategory,
                         decoration: const InputDecoration(
                           labelText: 'رشته و برنامه تمرینی *',
-                          prefixIcon: Icon(Icons.sports_gymnastics),
                           border: OutlineInputBorder(),
                         ),
-                        items: Athlete.trainingCategories.map((c) {
-                          return DropdownMenuItem(value: c, child: Text(c));
+                        items: Athlete.trainingCategories.map((cat) {
+                          return DropdownMenuItem(value: cat, child: Text(cat));
                         }).toList(),
                         onChanged: (val) {
                           if (val != null) setState(() => _trainingCategory = val);
                         },
                       ),
-                      const SizedBox(height: 14),
-
-                      ListTile(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          side: BorderSide(
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: _pickRegistrationDate,
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'تاریخ شروع عضویت *',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_month, color: AppColors.brand500),
+                          ),
+                          child: Text(
+                            JalaliUtils.formatJalaliPretty(_registrationDate),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
-                        leading: const Icon(Icons.access_time, color: AppColors.brand500),
-                        title: const Text('تاریخ شروع عضویت *', style: TextStyle(fontSize: 12)),
-                        subtitle: Text(
-                          JalaliUtils.formatJalaliPretty(_registrationDate),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                        ),
-                        trailing: const Icon(Icons.calendar_month, color: AppColors.brand500),
-                        onTap: _pickRegistrationDate,
                       ),
                       const SizedBox(height: 20),
 
-                      // Section 4: Financial Info
-                      _buildSectionHeader(Icons.monetization_on, 'شهریه و وضعیت مالی'),
+                      // Section 4: Enhanced Financial Structure with Auto-Calculation
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildSectionHeader(Icons.attach_money, 'شهریه و وضعیت مالی'),
+                          TextButton.icon(
+                            icon: const Icon(Icons.calculate, size: 14),
+                            label: Text(
+                              _autoCalculateDebt ? 'محاسبه خودکار بدهی' : 'دستی',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () {
+                              setState(() => _autoCalculateDebt = !_autoCalculateDebt);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Monthly Fee
+                      TextFormField(
+                        controller: _monthlyFeeController,
+                        keyboardType: TextInputType.number,
+                        textDirection: TextDirection.ltr,
+                        scrollPadding: const EdgeInsets.only(bottom: 140),
+                        decoration: const InputDecoration(
+                          labelText: 'مبلغ کل شهریه ماه جاری (تومان) *',
+                          hintText: '۲,۰۰۰,۰۰۰',
+                          suffixText: 'تومان',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (val) {
+                          final f = ValidationUtils.formatNumberInput(val);
+                          if (f != val) {
+                            _monthlyFeeController.value = TextEditingValue(
+                              text: f,
+                              selection: TextSelection.collapsed(offset: f.length),
+                            );
+                          }
+                          _onFeeChanged(val);
+                          setState(() {});
+                        },
+                        validator: (v) {
+                          final n = ValidationUtils.parseNumberInput(v ?? '');
+                          if (n <= 0) return 'مبلغ شهریه الزامی است';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'معادل: ${ValidationUtils.formatCurrencyToman(ValidationUtils.parseNumberInput(_monthlyFeeController.text))}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.brand500),
+                      ),
                       const SizedBox(height: 12),
+
                       Row(
                         children: [
                           Expanded(
@@ -347,8 +544,10 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                               controller: _tuitionPaidController,
                               keyboardType: TextInputType.number,
                               textDirection: TextDirection.ltr,
+                              scrollPadding: const EdgeInsets.only(bottom: 140),
                               decoration: const InputDecoration(
-                                labelText: 'شهریه پرداختی (تومان) *',
+                                labelText: 'شهریه پرداختی *',
+                                suffixText: 'تومان',
                                 border: OutlineInputBorder(),
                               ),
                               onChanged: (val) {
@@ -359,10 +558,12 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                                     selection: TextSelection.collapsed(offset: f.length),
                                   );
                                 }
+                                _onPaidChanged(val);
+                                setState(() {});
                               },
                               validator: (v) {
                                 final n = ValidationUtils.parseNumberInput(v ?? '');
-                                if (n <= 0) return 'مبلغ الزامی است';
+                                if (n < 0) return 'مبلغ نامعتبر است';
                                 return null;
                               },
                             ),
@@ -373,12 +574,15 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                               controller: _tuitionUnpaidController,
                               keyboardType: TextInputType.number,
                               textDirection: TextDirection.ltr,
-                              decoration: const InputDecoration(
-                                labelText: 'باقی‌مانده / بدهی',
-                                hintText: 'اختیاری',
-                                border: OutlineInputBorder(),
+                              scrollPadding: const EdgeInsets.only(bottom: 140),
+                              decoration: InputDecoration(
+                                labelText: 'مانده بدهی',
+                                suffixText: 'تومان',
+                                helperText: _autoCalculateDebt ? 'محاسبه خودکار' : null,
+                                border: const OutlineInputBorder(),
                               ),
                               onChanged: (val) {
+                                setState(() => _autoCalculateDebt = false);
                                 final f = ValidationUtils.formatNumberInput(val);
                                 if (f != val) {
                                   _tuitionUnpaidController.value = TextEditingValue(
@@ -399,12 +603,12 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                       TextFormField(
                         controller: _notesController,
                         maxLines: 2,
+                        scrollPadding: const EdgeInsets.only(bottom: 140),
                         decoration: const InputDecoration(
-                          hintText: 'سوابق آسیب‌دیدگی، اهداف، روزهای تمرینی...',
+                          hintText: 'سوابق آسیب‌دیدگی، اهداف، ساعات تمرین...',
                           border: OutlineInputBorder(),
                         ),
                       ),
-                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -457,7 +661,7 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
   Widget _buildSectionHeader(IconData icon, String title) {
     return Row(
       children: [
-        Icon(icon, color: AppColors.brand500, size: 16),
+        Icon(icon, size: 16, color: AppColors.brand500),
         const SizedBox(width: 8),
         Text(
           title,

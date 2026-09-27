@@ -3,29 +3,31 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   Camera,
-  User,
-  Phone,
-  CreditCard,
   Calendar as CalendarIcon,
-  Coins,
-  Check,
+  CreditCard,
+  Phone,
+  User,
   AlertCircle,
-  Loader2,
-  Trash2,
+  Coins,
   Dumbbell,
+  Trash2,
+  Edit2,
+  Calculator,
 } from 'lucide-react';
-import { Athlete, TRAINING_CATEGORIES, TrainingCategory } from '../types/athlete';
+import { Athlete, TrainingCategory, TRAINING_CATEGORIES } from '../types/athlete';
 import {
   validateNationalId,
   validateMobileNumber,
   validateName,
   formatNumberInput,
   parseNumberInput,
+  formatCurrencyToman,
 } from '../utils/validation';
 import {
   getTodayJalali,
   formatJalaliPretty,
   toEnglishDigits,
+  toPersianDigits,
 } from '../utils/jalali';
 import { JalaliDatePicker } from './JalaliDatePicker';
 
@@ -42,20 +44,23 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
   onSave,
   editAthlete,
 }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const today = getTodayJalali();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Form fields state
+  // Form states
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [photo, setPhoto] = useState<string | undefined>(undefined);
   const [mobileNumber, setMobileNumber] = useState('');
   const [nationalId, setNationalId] = useState('');
   const [birthDate, setBirthDate] = useState('1375/01/01');
+  const [directBirthInput, setDirectBirthInput] = useState(false);
   const [registrationDate, setRegistrationDate] = useState(today.formatted);
   const [trainingCategory, setTrainingCategory] = useState<TrainingCategory>('بدنسازی عمومی');
-  const [tuitionPaid, setTuitionPaid] = useState('1,500,000');
-  const [tuitionUnpaid, setTuitionUnpaid] = useState('');
+  const [monthlyFee, setMonthlyFee] = useState('2,000,000');
+  const [tuitionPaid, setTuitionPaid] = useState('2,000,000');
+  const [tuitionUnpaid, setTuitionUnpaid] = useState('0');
+  const [autoCalculateUnpaid, setAutoCalculateUnpaid] = useState(true);
   const [notes, setNotes] = useState('');
 
   // Field blur and validation states
@@ -78,10 +83,15 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         setBirthDate(editAthlete.birthDate);
         setRegistrationDate(editAthlete.registrationDate);
         setTrainingCategory(editAthlete.trainingCategory || 'بدنسازی عمومی');
+        const mFee = editAthlete.monthlyFee || (editAthlete.tuitionPaid || 0) + (editAthlete.tuitionUnpaid || 0) || 2000000;
+        setMonthlyFee(formatNumberInput(String(mFee)));
         setTuitionPaid(formatNumberInput(String(editAthlete.tuitionPaid || '')));
         setTuitionUnpaid(
-          editAthlete.tuitionUnpaid ? formatNumberInput(String(editAthlete.tuitionUnpaid)) : ''
+          typeof editAthlete.tuitionUnpaid === 'number'
+            ? formatNumberInput(String(editAthlete.tuitionUnpaid))
+            : '0'
         );
+        setAutoCalculateUnpaid(false);
         setNotes(editAthlete.notes || '');
       } else {
         // Reset form for new athlete
@@ -93,15 +103,41 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         setBirthDate('1375/01/01');
         setRegistrationDate(today.formatted);
         setTrainingCategory('بدنسازی عمومی');
+        setMonthlyFee('2,000,000');
         setTuitionPaid('2,000,000');
-        setTuitionUnpaid('');
+        setTuitionUnpaid('0');
+        setAutoCalculateUnpaid(true);
         setNotes('');
       }
+      setDirectBirthInput(false);
       setTouched({});
       setErrors({});
       setIsSubmitting(false);
     }
   }, [isOpen, editAthlete]);
+
+  // Recalculate remaining tuition when monthlyFee or tuitionPaid changes
+  const handleFeeChange = (newFee: string) => {
+    const formatted = formatNumberInput(newFee);
+    setMonthlyFee(formatted);
+    if (autoCalculateUnpaid) {
+      const feeNum = parseNumberInput(formatted);
+      const paidNum = parseNumberInput(tuitionPaid);
+      const remaining = Math.max(0, feeNum - paidNum);
+      setTuitionUnpaid(formatNumberInput(String(remaining)));
+    }
+  };
+
+  const handlePaidChange = (newPaid: string) => {
+    const formatted = formatNumberInput(newPaid);
+    setTuitionPaid(formatted);
+    if (autoCalculateUnpaid) {
+      const feeNum = parseNumberInput(monthlyFee);
+      const paidNum = parseNumberInput(formatted);
+      const remaining = Math.max(0, feeNum - paidNum);
+      setTuitionUnpaid(formatNumberInput(String(remaining)));
+    }
+  };
 
   // Validation function
   const runValidation = (field: string, value: string) => {
@@ -118,10 +154,10 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
     } else if (field === 'nationalId') {
       const v = validateNationalId(value);
       if (!v.isValid) err = v.error || '';
-    } else if (field === 'tuitionPaid') {
+    } else if (field === 'monthlyFee') {
       const num = parseNumberInput(value);
       if (!value.trim() || isNaN(num) || num <= 0) {
-        err = 'مبلغ پرداختی الزامی است';
+        err = 'مبلغ شهریه دوره الزامی است';
       }
     }
     setErrors((prev) => ({ ...prev, [field]: err }));
@@ -133,6 +169,13 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
     runValidation(field, value);
   };
 
+  // Auto-scroll on focus so mobile keyboard doesn't obscure input
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setTimeout(() => {
+      e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -141,20 +184,33 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         return;
       }
       const reader = new FileReader();
-      reader.onload = () => {
-        setPhoto(reader.result as string);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // Compress / downscale image to max 400x400 for optimal local storage
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const maxDim = 400;
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.85);
+          setPhoto(compressed);
+        };
+        img.src = event.target?.result as string;
       };
       reader.readAsDataURL(file);
     }
   };
-
-  // Form validity check
-  const isFormValid =
-    firstName.trim().length >= 2 &&
-    lastName.trim().length >= 2 &&
-    validateMobileNumber(mobileNumber).isValid &&
-    validateNationalId(nationalId).isValid &&
-    parseNumberInput(tuitionPaid) > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,21 +220,25 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
       lastName: true,
       mobileNumber: true,
       nationalId: true,
-      tuitionPaid: true,
+      monthlyFee: true,
     });
 
     const isFnValid = runValidation('firstName', firstName);
     const isLnValid = runValidation('lastName', lastName);
     const isMobValid = runValidation('mobileNumber', mobileNumber);
     const isNatValid = runValidation('nationalId', nationalId);
-    const isTuiValid = runValidation('tuitionPaid', tuitionPaid);
+    const isFeeValid = runValidation('monthlyFee', monthlyFee);
 
-    if (!isFnValid || !isLnValid || !isMobValid || !isNatValid || !isTuiValid) {
+    if (!isFnValid || !isLnValid || !isMobValid || !isNatValid || !isFeeValid) {
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const parsedMonthly = parseNumberInput(monthlyFee);
+      const parsedPaid = parseNumberInput(tuitionPaid) || 0;
+      const parsedUnpaid = tuitionUnpaid ? parseNumberInput(tuitionUnpaid) : 0;
+
       await onSave(
         {
           firstName: firstName.trim(),
@@ -189,8 +249,9 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
           birthDate,
           registrationDate,
           trainingCategory,
-          tuitionPaid: parseNumberInput(tuitionPaid),
-          tuitionUnpaid: tuitionUnpaid ? parseNumberInput(tuitionUnpaid) : 0,
+          monthlyFee: parsedMonthly,
+          tuitionPaid: parsedPaid,
+          tuitionUnpaid: parsedUnpaid,
           notes: notes.trim(),
         },
         editAthlete?.id
@@ -245,9 +306,9 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 </div>
               </div>
 
-              {/* Form Content - Scrollable */}
-              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Photo Picker */}
+              {/* Form Content - Scrollable with Extra Bottom Padding for Keyboard */}
+              <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 pb-48">
+                {/* Photo Upload from device */}
                 <div className="flex flex-col items-center justify-center">
                   <input
                     type="file"
@@ -261,7 +322,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     className={`relative w-24 h-24 rounded-full cursor-pointer overflow-hidden border-2 transition-all flex items-center justify-center group ${
                       photo
                         ? 'border-brand-500 shadow-lg shadow-brand-500/20'
-                        : 'border-dashed border-brand-400/80 dark:border-brand-500/50 bg-brand-50/50 dark:bg-brand-950/20 animate-pulse-subtle'
+                        : 'border-dashed border-brand-400/80 dark:border-brand-500/50 bg-brand-50/50 dark:bg-brand-950/20'
                     }`}
                   >
                     {photo ? (
@@ -279,22 +340,30 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       </div>
                     )}
 
-                    {/* Camera overlay indicator */}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
                       <Camera className="w-6 h-6" />
                     </div>
                   </div>
 
-                  {photo && (
+                  <div className="flex items-center gap-3 mt-2">
                     <button
                       type="button"
-                      onClick={() => setPhoto(undefined)}
-                      className="mt-2 text-xs text-rose-500 hover:text-rose-600 font-semibold flex items-center gap-1"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      حذف عکس
+                      {photo ? 'تغییر عکس از گالری' : 'انتخاب عکس از گوشی'}
                     </button>
-                  )}
+                    {photo && (
+                      <button
+                        type="button"
+                        onClick={() => setPhoto(undefined)}
+                        className="text-xs text-rose-500 hover:text-rose-600 font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        حذف
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Section 1: Personal Info */}
@@ -315,6 +384,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       <input
                         type="text"
                         value={firstName}
+                        onFocus={handleInputFocus}
                         onChange={(e) => {
                           setFirstName(e.target.value);
                           if (touched.firstName) runValidation('firstName', e.target.value);
@@ -350,6 +420,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       <input
                         type="text"
                         value={lastName}
+                        onFocus={handleInputFocus}
                         onChange={(e) => {
                           setLastName(e.target.value);
                           if (touched.lastName) runValidation('lastName', e.target.value);
@@ -378,19 +449,54 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Date of Birth Picker Button */}
+                  {/* Date of Birth Picker with Rapid Year Jump & Direct Typing */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                      تاریخ تولد (شمسی) <span className="text-rose-500">*</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setActiveDatePicker('birth')}
-                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-800 dark:text-slate-200 flex items-center justify-between hover:border-brand-500 transition-colors"
-                    >
-                      <span className="font-semibold">{formatJalaliPretty(birthDate)}</span>
-                      <CalendarIcon className="w-4 h-4 text-brand-500" />
-                    </button>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        تاریخ تولد (شمسی) <span className="text-rose-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setDirectBirthInput(!directBirthInput)}
+                        className="text-[11px] text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        {directBirthInput ? 'انتخاب از تقویم' : 'تایپ مستقیم تاریخ'}
+                      </button>
+                    </div>
+
+                    {directBirthInput ? (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          dir="ltr"
+                          placeholder="1378/05/14"
+                          value={birthDate}
+                          onFocus={handleInputFocus}
+                          onChange={(e) => {
+                            let val = toEnglishDigits(e.target.value).replace(/[^0-9]/g, '');
+                            if (val.length > 4 && val.charAt(4) !== '/') val = val.slice(0, 4) + '/' + val.slice(4);
+                            if (val.length > 7 && val.charAt(7) !== '/') val = val.slice(0, 7) + '/' + val.slice(7, 9);
+                            setBirthDate(val.slice(0, 10));
+                          }}
+                          className="w-full text-left pl-3.5 pr-10 py-2.5 text-sm font-mono tracking-wider rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500 outline-none"
+                        />
+                        <CalendarIcon className="w-4 h-4 text-brand-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveDatePicker('birth')}
+                        className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-800 dark:text-slate-200 flex items-center justify-between hover:border-brand-500 transition-colors"
+                      >
+                        <span className="font-semibold">{formatJalaliPretty(birthDate)}</span>
+                        <div className="flex items-center gap-1.5 text-brand-600 dark:text-brand-400 text-xs font-bold">
+                          <span>انتخاب سال و ماه</span>
+                          <CalendarIcon className="w-4 h-4" />
+                        </div>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -399,7 +505,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-darkBorder/40">
                     <Phone className="w-4 h-4 text-brand-500" />
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      اطلاعات تماس و هویتی
+                      اطلاعات تماس و هویت
                     </span>
                   </div>
 
@@ -411,10 +517,10 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     <div className="relative">
                       <input
                         type="tel"
-                        inputMode="numeric"
                         dir="ltr"
                         maxLength={11}
                         value={mobileNumber}
+                        onFocus={handleInputFocus}
                         onChange={(e) => {
                           const val = toEnglishDigits(e.target.value).replace(/[^0-9]/g, '');
                           setMobileNumber(val);
@@ -451,7 +557,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         کد ملی (۱۰ رقم با اعتبارسنجی) <span className="text-rose-500">*</span>
                       </label>
-                      <span className="text-[10px] text-slate-400">الگوریتم ثبت احوال</span>
+                      <span className="text-[10px] text-slate-400">شناسه اختصاصی ثبت حضور</span>
                     </div>
                     <div className="relative">
                       <input
@@ -460,6 +566,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                         dir="ltr"
                         maxLength={10}
                         value={nationalId}
+                        onFocus={handleInputFocus}
                         onChange={(e) => {
                           const val = toEnglishDigits(e.target.value).replace(/[^0-9]/g, '');
                           setNationalId(val);
@@ -500,7 +607,6 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                     </span>
                   </div>
 
-                  {/* Training Category Dropdown */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 flex items-center gap-1.5">
                       <Dumbbell className="w-3.5 h-3.5 text-brand-500" />
@@ -531,26 +637,61 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                       <span className="font-semibold">{formatJalaliPretty(registrationDate)}</span>
                       <CalendarIcon className="w-4 h-4 text-brand-500" />
                     </button>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
-                      پیش‌فرض تاریخ امروز، اما در صورت ثبت گذشته‌نگر قابل تغییر است.
-                    </p>
                   </div>
                 </div>
 
-                {/* Section 4: Financial */}
+                {/* Section 4: Enhanced Financial Structure with Auto-Calculation */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-darkBorder/40">
-                    <Coins className="w-4 h-4 text-brand-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      شهریه و وضعیت مالی
-                    </span>
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-darkBorder/40">
+                    <div className="flex items-center gap-2">
+                      <Coins className="w-4 h-4 text-brand-500" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        ساختار شهریه و امور مالی
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAutoCalculateUnpaid(!autoCalculateUnpaid)}
+                      className="text-[11px] font-bold flex items-center gap-1 text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      <Calculator className="w-3 h-3" />
+                      {autoCalculateUnpaid ? 'محاسبه خودکار بدهی: فعال' : 'محاسبه دستی'}
+                    </button>
+                  </div>
+
+                  {/* Monthly Fee */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      مبلغ شهریه ماه جاری (نرخ مصوب این ماه) <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        dir="ltr"
+                        value={monthlyFee}
+                        onFocus={handleInputFocus}
+                        onChange={(e) => handleFeeChange(e.target.value)}
+                        onBlur={() => handleBlur('monthlyFee', monthlyFee)}
+                        placeholder="۲,۰۰۰,۰۰۰"
+                        className="w-full text-left pl-3.5 pr-14 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500 outline-none transition-colors"
+                      />
+                      <span className="text-[11px] font-bold text-slate-400 absolute right-3 top-1/2 -translate-y-1/2">
+                        تومان
+                      </span>
+                    </div>
+                    {monthlyFee && (
+                      <p className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 mt-1">
+                        معادل: {formatCurrencyToman(parseNumberInput(monthlyFee))}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     {/* Tuition Paid */}
                     <div>
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        شهریه پرداخت شده <span className="text-rose-500">*</span>
+                        شهریه پرداخت شده
                       </label>
                       <div className="relative">
                         <input
@@ -558,47 +699,31 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                           inputMode="numeric"
                           dir="ltr"
                           value={tuitionPaid}
-                          onChange={(e) => {
-                            const formatted = formatNumberInput(e.target.value);
-                            setTuitionPaid(formatted);
-                            if (touched.tuitionPaid) runValidation('tuitionPaid', formatted);
-                          }}
-                          onBlur={() => handleBlur('tuitionPaid', tuitionPaid)}
-                          placeholder="۱,۵۰۰,۰۰۰"
-                          className={`w-full text-left pl-3.5 pr-14 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-darkSubtle border transition-colors outline-none focus:ring-2 focus:ring-brand-500/20 ${
-                            touched.tuitionPaid && errors.tuitionPaid
-                              ? 'border-rose-500 bg-rose-50/20 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200'
-                              : 'border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500'
-                          }`}
+                          onFocus={handleInputFocus}
+                          onChange={(e) => handlePaidChange(e.target.value)}
+                          placeholder="۲,۰۰۰,۰۰۰"
+                          className="w-full text-left pl-3.5 pr-14 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500 outline-none transition-colors"
                         />
                         <span className="text-[11px] font-bold text-slate-400 absolute right-3 top-1/2 -translate-y-1/2">
                           تومان
                         </span>
                       </div>
-                      <AnimatePresence>
-                        {touched.tuitionPaid && errors.tuitionPaid && (
-                          <motion.p
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            className="text-[11px] font-semibold text-rose-500 mt-1 flex items-center gap-1"
-                          >
-                            <AlertCircle className="w-3 h-3 shrink-0" />
-                            {errors.tuitionPaid}
-                          </motion.p>
-                        )}
-                      </AnimatePresence>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                        {tuitionPaid ? `${toPersianDigits(tuitionPaid.replace(/,/g, ''))} تومان` : '۰ تومان'}
+                      </p>
                     </div>
 
-                    {/* Tuition Unpaid (Optional) */}
+                    {/* Tuition Unpaid (Auto-calculated) */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                           باقی‌مانده / بدهی
                         </label>
-                        <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-darkBorder px-1.5 py-0.5 rounded">
-                          اختیاری
-                        </span>
+                        {autoCalculateUnpaid && (
+                          <span className="text-[10px] text-brand-600 dark:text-brand-400 font-bold bg-brand-50 dark:bg-brand-950/40 px-1.5 py-0.5 rounded">
+                            خودکار
+                          </span>
+                        )}
                       </div>
                       <div className="relative">
                         <input
@@ -606,22 +731,26 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                           inputMode="numeric"
                           dir="ltr"
                           value={tuitionUnpaid}
+                          onFocus={handleInputFocus}
                           onChange={(e) => {
-                            const formatted = formatNumberInput(e.target.value);
-                            setTuitionUnpaid(formatted);
+                            setAutoCalculateUnpaid(false);
+                            setTuitionUnpaid(formatNumberInput(e.target.value));
                           }}
-                          placeholder="در صورت وجود بدهی"
+                          placeholder="۰"
                           className="w-full text-left pl-3.5 pr-14 py-2.5 text-sm font-mono rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500 outline-none transition-colors"
                         />
                         <span className="text-[11px] font-bold text-slate-400 absolute right-3 top-1/2 -translate-y-1/2">
                           تومان
                         </span>
                       </div>
+                      <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                        {tuitionUnpaid ? `${toPersianDigits(tuitionUnpaid.replace(/,/g, ''))} تومان` : '۰ تومان'}
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Section 5: Notes / Health Condition */}
+                {/* Section 5: Notes */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     یادداشت مربی یا وضعیت جسمانی (اختیاری)
@@ -629,35 +758,26 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
                   <textarea
                     rows={2}
                     value={notes}
+                    onFocus={handleInputFocus}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="مثال: سابقه آسیب زانو، تمرکز روی چربی‌سوزی، روزهای زوج..."
-                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500 outline-none transition-colors"
+                    placeholder="سوابق آسیب‌دیدگی، اهداف، ساعات تمرین و ..."
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-brand-500 outline-none transition-colors resize-none"
                   />
                 </div>
               </form>
 
-              {/* Sticky Submit Button Footer */}
-              <div className="p-4 bg-white/95 dark:bg-darkCard/95 border-t border-slate-100 dark:border-darkBorder/60 backdrop-blur-md">
+              {/* Sticky Submit Button at Bottom */}
+              <div className="p-4 border-t border-slate-100 dark:border-darkBorder/60 bg-white/90 dark:bg-darkCard/90 backdrop-blur-md sticky bottom-0 z-20">
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={!isFormValid || isSubmitting}
-                  className={`w-full py-3.5 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
-                    isFormValid && !isSubmitting
-                      ? 'bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white shadow-brand-500/30 active:scale-[0.98]'
-                      : 'bg-slate-200 dark:bg-darkBorder text-slate-400 dark:text-slate-500 cursor-not-allowed shadow-none'
-                  }`}
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-600 text-white font-bold text-sm shadow-lg shadow-brand-500/25 active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>در حال ذخیره...</span>
-                    </>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <>
-                      <Check className="w-5 h-5" />
-                      <span>{editAthlete ? 'ذخیره تغییرات پرونده' : 'ثبت ورزشکار در باشگاه'}</span>
-                    </>
+                    <span>{editAthlete ? 'ذخیره تغییرات پرونده' : 'ثبت ورزشکار در باشگاه هیراد'}</span>
                   )}
                 </button>
               </div>
@@ -666,23 +786,23 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Jalali Date Picker Modals */}
+      {/* Date Pickers */}
       <JalaliDatePicker
         isOpen={activeDatePicker === 'birth'}
-        title="انتخاب تاریخ تولد"
         value={birthDate}
+        title="انتخاب تاریخ تولد"
         minYear={1330}
-        maxYear={1405}
+        maxYear={today.year}
         onChange={(d) => setBirthDate(d)}
         onClose={() => setActiveDatePicker(null)}
       />
 
       <JalaliDatePicker
         isOpen={activeDatePicker === 'registration'}
-        title="انتخاب تاریخ عضویت در باشگاه"
         value={registrationDate}
+        title="انتخاب تاریخ شروع عضویت"
         minYear={1395}
-        maxYear={1415}
+        maxYear={today.year + 2}
         onChange={(d) => setRegistrationDate(d)}
         onClose={() => setActiveDatePicker(null)}
       />

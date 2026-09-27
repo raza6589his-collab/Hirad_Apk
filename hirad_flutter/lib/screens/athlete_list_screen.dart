@@ -8,6 +8,7 @@ import '../widgets/avatar.dart';
 import '../widgets/alphabet_quick_index.dart';
 import '../widgets/theme_toggle_button.dart';
 import '../utils/validation.dart';
+import '../utils/jalali.dart';
 import 'athlete_profile_screen.dart';
 import 'registration_form_screen.dart';
 
@@ -43,6 +44,16 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _loadAthletes();
+
+    // Check for update notification
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkUpdateNotification();
+    });
+  }
+
+  void _checkUpdateNotification() {
+    // Show new version notification to the coach
+    _showUpdateNotificationDialog();
   }
 
   @override
@@ -83,7 +94,6 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
       });
   }
 
-  // Letters present in current list (scoped to active filtered results)
   List<String> get _availableLetters {
     if (_sortMode != 'name-asc') return [];
     final set = <String>{};
@@ -102,7 +112,6 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
       return f == letter;
     });
     if (idx != -1 && _scrollController.hasClients) {
-      // 72px item height estimation
       _scrollController.animateTo(
         idx * 74.0,
         duration: const Duration(milliseconds: 300),
@@ -126,13 +135,274 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('ورزشکار جدید (${result.fullName}) با موفقیت ثبت شد'),
+            content: Text('${result.fullName} با موفقیت ثبت شد'),
             backgroundColor: AppColors.paid,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
     }
+  }
+
+  void _showQuickAttendanceDialog() {
+    final natController = TextEditingController();
+    Athlete? matched;
+    String feedback = '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final today = JalaliUtils.getTodayJalali();
+          final now = DateTime.now();
+          final timeStr =
+              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+              title: Row(
+                children: const [
+                  Icon(Icons.how_to_reg, color: AppColors.paid, size: 24),
+                  SizedBox(width: 8),
+                  Text('ثبت سریع حضور ورزشکار', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'کد ملی ۱۰ رقمی ورزشکار را برای ثبت فوری ورود وارد کنید:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: natController,
+                    keyboardType: TextInputType.number,
+                    textDirection: TextDirection.ltr,
+                    autofocus: true,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
+                    decoration: const InputDecoration(
+                      hintText: '0012345679',
+                      prefixIcon: Icon(Icons.credit_card),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) {
+                      final clean = ValidationUtils.toEnglishDigits(val).trim();
+                      if (clean.length >= 10) {
+                        final found = _allAthletes.firstWhere(
+                          (a) => a.nationalCode == clean,
+                          orElse: () => Athlete(
+                            id: '',
+                            firstName: '',
+                            lastName: '',
+                            mobileNumber: '',
+                            nationalCode: '',
+                            birthDateJalali: '',
+                            registrationDateJalali: '',
+                            trainingCategory: '',
+                            tuitionPaid: 0,
+                            lastUpdated: DateTime.now(),
+                          ),
+                        );
+                        setDialogState(() {
+                          matched = found.id.isNotEmpty ? found : null;
+                          feedback = found.id.isEmpty ? 'ورزشکاری با این کد ملی یافت نشد' : '';
+                        });
+                      } else {
+                        setDialogState(() {
+                          matched = null;
+                          feedback = '';
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (matched != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSubtle : Colors.grey[100],
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.paid.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              AthleteAvatar(
+                                firstName: matched!.firstName,
+                                lastName: matched!.lastName,
+                                size: AvatarSize.sm,
+                                heroTag: 'quick-att-${matched!.id}',
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      matched!.fullName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    Text(
+                                      '${matched!.trainingCategory} • ${matched!.mobileNumber}',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'جلسه شماره ${ValidationUtils.toPersianDigits(matched!.attendances.length + 1)}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.paid),
+                              ),
+                              Text(
+                                matched!.hasDebt
+                                    ? 'بدهی: ${ValidationUtils.formatCurrencyToman(matched!.tuitionUnpaid)}'
+                                    : 'شهریه تسویه',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: matched!.hasDebt ? AppColors.debt : AppColors.paid,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.paid,
+                                foregroundColor: Colors.white,
+                              ),
+                              icon: const Icon(Icons.check_circle),
+                              label: const Text('ثبت ورود این جلسه'),
+                              onPressed: () async {
+                                final record = AttendanceRecord(
+                                  id: 'att-${DateTime.now().millisecondsSinceEpoch}',
+                                  date: today.formatted,
+                                  time: timeStr,
+                                  sessionNumber: matched!.attendances.length + 1,
+                                );
+                                final updated = matched!.copyWith(
+                                  attendances: [record, ...matched!.attendances],
+                                  lastUpdated: DateTime.now(),
+                                );
+                                await _repository.updateAthlete(updated);
+                                _confettiController.play();
+                                _loadAthletes();
+                                if (mounted) {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'ورود ${matched!.fullName} برای جلسه شماره ${record.sessionNumber} ثبت شد ✅',
+                                      ),
+                                      backgroundColor: AppColors.paid,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (feedback.isNotEmpty) ...[
+                    Text(
+                      feedback,
+                      style: const TextStyle(fontSize: 12, color: AppColors.debt, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('بستن'),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showUpdateNotificationDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
+          title: Row(
+            children: const [
+              Icon(Icons.upgrade, color: AppColors.brand500, size: 24),
+              SizedBox(width: 8),
+              Text('بروزرسانی نسخه ۱.۱.۰ هیراد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'نسخه جدید اپلیکیشن باشگاه هیراد با قابلیت‌های جدید آماده است:',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 10),
+                Text('⚡ انتخاب فوق‌سریع سال تولد با دهه‌ها و جستجوی مستقیم'),
+                SizedBox(height: 6),
+                Text('📱 اصلاح کیبورد و دید کامل ارقام در بخش شهریه'),
+                SizedBox(height: 6),
+                Text('💳 تفکیک شهریه ماه، ثبت واریزی‌ها و محاسبه خودکار بدهی'),
+                SizedBox(height: 6),
+                Text('⏱️ ثبت سریع حضور و غیاب با کد ملی در صفحه اصلی'),
+                SizedBox(height: 6),
+                Text('📋 محاسبه و نمایش سوابق جلسات حضور هر ورزشکار'),
+                SizedBox(height: 6),
+                Text('🖼️ امکان آپلود و تغییر عکس پروفایل از حافظه دستگاه'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('بعداً'),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.brand500,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.download),
+              label: const Text('دانلود نسخه جدید (APK)'),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final uri = Uri.parse('https://github.com/raza6589his-collab/Hirad_Apk/releases/latest');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _confirmDelete(Athlete athlete) {
@@ -143,9 +413,7 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
         child: AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
           title: const Text('حذف ورزشکار', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Text(
-            'آیا از حذف پرونده ${athlete.fullName} اطمینان دارید؟ این عمل غیرقابل بازگشت است.',
-          ),
+          content: Text('آیا از حذف پرونده ${athlete.fullName} اطمینان دارید؟'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -242,6 +510,18 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
             ],
           ),
           actions: [
+            // Quick Attendance Button
+            IconButton(
+              icon: const Icon(Icons.how_to_reg, color: AppColors.paid),
+              tooltip: 'ثبت سریع حضور با کد ملی',
+              onPressed: _showQuickAttendanceDialog,
+            ),
+            // Update Notification Bell
+            IconButton(
+              icon: const Icon(Icons.notifications_active, color: AppColors.brand500),
+              tooltip: 'اعلان نسخه جدید برنامه',
+              onPressed: _showUpdateNotificationDialog,
+            ),
             // Search button
             IconButton(
               icon: Icon(_isSearchExpanded ? Icons.close : Icons.search),
@@ -278,20 +558,20 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
                             },
                           ),
                           ListTile(
-                            leading: const Icon(Icons.warning_amber),
-                            title: const Text('بدهکاران در ابتدا'),
-                            selected: _sortMode == 'debt-first',
+                            leading: const Icon(Icons.sort_by_alpha),
+                            title: const Text('الفبا (ی تا الف)'),
+                            selected: _sortMode == 'name-desc',
                             onTap: () {
-                              setState(() => _sortMode = 'debt-first');
+                              setState(() => _sortMode = 'name-desc');
                               Navigator.pop(ctx);
                             },
                           ),
                           ListTile(
-                            leading: const Icon(Icons.access_time),
-                            title: const Text('جدیدترین اعضا'),
-                            selected: _sortMode == 'date-newest',
+                            leading: const Icon(Icons.money_off),
+                            title: const Text('ابتدا بدهکاران'),
+                            selected: _sortMode == 'debt-first',
                             onTap: () {
-                              setState(() => _sortMode = 'date-newest');
+                              setState(() => _sortMode = 'debt-first');
                               Navigator.pop(ctx);
                             },
                           ),
@@ -302,133 +582,103 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
                 );
               },
             ),
-            // Theme toggle button with rotating morph
+            // Theme toggle button
             ThemeToggleButton(
-              isDark: isDark,
+              isDark: widget.isDarkMode,
               onToggle: widget.onToggleTheme,
             ),
-            const SizedBox(width: 8),
           ],
-          bottom: PreferredSize(
-            preferredSize: Size.fromHeight(_isSearchExpanded ? 104 : 52),
-            child: Column(
-              children: [
-                if (_isSearchExpanded)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    child: TextField(
-                      controller: _searchController,
-                      autofocus: true,
-                      onChanged: (val) => setState(() => _searchQuery = val),
-                      decoration: InputDecoration(
-                        hintText: 'جستجو در نام، شماره موبایل یا کد ملی...',
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        filled: true,
-                        fillColor: isDark ? AppColors.darkSubtle : Colors.grey[100],
-                        contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                // Filter chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        label: Text('همه (${ValidationUtils.toPersianDigits(_allAthletes.length)})'),
-                        selected: _filterMode == 'all',
-                        onSelected: (_) => setState(() => _filterMode = 'all'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.circle, size: 8, color: AppColors.debt),
-                            const SizedBox(width: 4),
-                            Text(
-                              'دارای بدهی (${ValidationUtils.toPersianDigits(_allAthletes.where((a) => a.hasDebt).length)})',
-                            ),
-                          ],
-                        ),
-                        selected: _filterMode == 'debt',
-                        onSelected: (_) => setState(() => _filterMode = 'debt'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.circle, size: 8, color: AppColors.paid),
-                            const SizedBox(width: 4),
-                            Text(
-                              'تسویه کامل (${ValidationUtils.toPersianDigits(_allAthletes.where((a) => !a.hasDebt).length)})',
-                            ),
-                          ],
-                        ),
-                        selected: _filterMode == 'paid',
-                        onSelected: (_) => setState(() => _filterMode = 'paid'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
         body: Stack(
           children: [
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filtered.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
-                            const SizedBox(height: 12),
-                            Text(
-                              _searchQuery.isNotEmpty
-                                  ? 'ورزشکاری با این مشخصات یافت نشد'
-                                  : 'هنوز ورزشکاری ثبت نشده است',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadAthletes,
-                        child: ListView.separated(
-                          controller: _scrollController,
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            RefreshIndicator(
+              onRefresh: _loadAthletes,
+              color: AppColors.brand500,
+              child: Column(
+                children: [
+                  // Live Search Input (if expanded)
+                  if (_isSearchExpanded)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                      child: TextField(
+                        controller: _searchController,
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'جستجو بر اساس نام، موبایل یا کد ملی...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
                           ),
-                          itemBuilder: (ctx, idx) {
-                            final athlete = filtered[idx];
-                            return _buildAthleteRow(athlete, isDark);
-                          },
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
+                        onChanged: (val) => setState(() => _searchQuery = val),
                       ),
+                    ),
 
-            // Draggable Alphabet Quick Index on side with >=36px tap targets
-            Positioned(
-              top: 16,
-              bottom: 16,
-              left: 0,
-              child: AlphabetQuickIndex(
-                letters: letters,
-                onLetterSelected: _scrollToLetter,
+                  // Filter Chips Row
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        _buildFilterChip('all', 'همه (${ValidationUtils.toPersianDigits(_allAthletes.length)})'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('debt', 'دارای بدهی'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('paid', 'تسویه کامل'),
+                      ],
+                    ),
+                  ),
+
+                  // Athlete List / Empty State
+                  Expanded(
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : filtered.isEmpty
+                            ? _buildEmptyState()
+                            : Stack(
+                                children: [
+                                  ListView.separated(
+                                    controller: _scrollController,
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    itemCount: filtered.length,
+                                    separatorBuilder: (_, __) => Divider(
+                                      height: 1,
+                                      indent: 72,
+                                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                    ),
+                                    itemBuilder: (ctx, index) {
+                                      final athlete = filtered[index];
+                                      return _buildAthleteRow(athlete);
+                                    },
+                                  ),
+                                  // Alphabet quick-index bar (if name-asc)
+                                  if (letters.length > 1)
+                                    Positioned(
+                                      top: 10,
+                                      bottom: 10,
+                                      right: 0,
+                                      child: AlphabetQuickIndex(
+                                        availableLetters: letters,
+                                        onLetterSelected: _scrollToLetter,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                  ),
+                ],
               ),
             ),
 
-            // Celebratory Confetti Widget
+            // Confetti
             Align(
               alignment: Alignment.topCenter,
               child: ConfettiWidget(
@@ -449,29 +699,45 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
           backgroundColor: AppColors.brand500,
           foregroundColor: Colors.white,
           onPressed: _openAddModal,
-          tooltip: 'ثبت ورزشکار جدید',
-          child: const Icon(Icons.add, size: 28),
+          tooltip: 'افزودن ورزشکار',
+          child: const Icon(Icons.add),
         ),
       ),
     );
   }
 
-  Widget _buildAthleteRow(Athlete athlete, bool isDark) {
+  Widget _buildFilterChip(String mode, String label) {
+    final isSelected = _filterMode == mode;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.brand500,
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : null,
+        fontWeight: FontWeight.bold,
+        fontSize: 12,
+      ),
+      onSelected: (_) => setState(() => _filterMode = mode),
+    );
+  }
+
+  Widget _buildAthleteRow(Athlete athlete) {
+    final isDark = widget.isDarkMode;
     final heroTag = 'avatar-${athlete.id}';
 
     return Dismissible(
       key: Key(athlete.id),
       direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: AppColors.debt,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
       confirmDismiss: (dir) async {
         _confirmDelete(athlete);
         return false;
       },
-      background: Container(
-        color: AppColors.debt,
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: 20),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
       child: InkWell(
         onTap: () async {
           final changed = await Navigator.push<bool>(
@@ -488,7 +754,7 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              // Hero-animated Avatar
+              // Avatar
               AthleteAvatar(
                 firstName: athlete.firstName,
                 lastName: athlete.lastName,
@@ -507,15 +773,11 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
                   children: [
                     Text(
                       athlete.fullName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        // Consistent Status Dot on EVERY row
                         Container(
                           width: 8,
                           height: 8,
@@ -560,7 +822,7 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
                 ),
               ),
 
-              // Trailing registration date
+              // Trailing session count and registration date
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -574,21 +836,92 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkSubtle : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                    ),
-                    child: Text(
-                      athlete.trainingCategory.split(' ')[0],
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (athlete.attendances.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.paid.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                          ),
+                          child: Text(
+                            '${ValidationUtils.toPersianDigits(athlete.attendances.length)} جلسه',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.paid,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppColors.darkSubtle : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Text(
+                          athlete.trainingCategory.split(' ').first,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark ? Colors.grey[300] : Colors.grey[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: AppColors.brand500.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.fitness_center, size: 40, color: AppColors.brand500),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'هنوز ورزشکاری ثبت نشده است',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'با زدن دکمه «ثبت اولین ورزشکار» شروع کنید',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.brand500,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md)),
+              ),
+              icon: const Icon(Icons.add),
+              label: const Text('ثبت اولین ورزشکار', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: _openAddModal,
+            ),
+          ],
         ),
       ),
     );
