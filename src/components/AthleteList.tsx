@@ -172,30 +172,30 @@ export const AthleteList: React.FC<AthleteListProps> = ({
       className="flex flex-col h-full bg-slate-50 dark:bg-darkBg text-slate-900 dark:text-white relative select-none"
     >
       {/* Top App Bar - Fixed, Non-shifting */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-darkCard/95 border-b border-slate-200/80 dark:border-darkBorder backdrop-blur-md px-4 py-3 shadow-sm transition-colors">
-        <div className="flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-white/95 dark:bg-darkCard/95 border-b border-slate-200/80 dark:border-darkBorder backdrop-blur-md px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm transition-colors">
+        <div className="flex items-center justify-between gap-1">
           {/* Logo & Title */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 shrink-0">
-              <Dumbbell className="w-5 h-5" />
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 shrink-0">
+              <Dumbbell className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
                   باشگاه هیراد
                 </h1>
                 <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20">
                   مربی
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              <p className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400">
                 {toPersianDigits(athletes.length)} ورزشکار ثبت شده
               </p>
             </div>
           </div>
 
-          {/* Standardized Circular Action Buttons (40x40) */}
-          <div className="flex items-center gap-1">
+          {/* Standardized Circular Action Buttons (Fully contained within frame) */}
+          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
             {/* Search Button */}
             <button
               type="button"
@@ -207,14 +207,14 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                   setSearchQuery('');
                 }
               }}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors active:scale-95 ${
+              className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 transition-colors active:scale-95 ${
                 isSearchOpen
                   ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder'
               }`}
               title="جستجو"
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </button>
 
             {/* Quick Attendance Check-in Button */}
@@ -222,10 +222,10 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               <button
                 type="button"
                 onClick={onOpenAttendance}
-                className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center border border-emerald-500/20 active:scale-95 transition-all shadow-sm"
+                className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full shrink-0 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center border border-emerald-500/20 active:scale-95 transition-all shadow-sm"
                 title="ثبت سریع حضور ورزشکار با کد ملی"
               >
-                <UserCheck className="w-5 h-5" />
+                <UserCheck className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
               </button>
             )}
 
@@ -233,27 +233,17 @@ export const AthleteList: React.FC<AthleteListProps> = ({
             <button
               type="button"
               onClick={() => setIsSortMenuOpen((prev) => !prev)}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors relative active:scale-95 ${
+              className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 transition-colors relative active:scale-95 ${
                 filterBy !== 'all' || sortBy !== 'name-asc'
                   ? 'text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/40'
                   : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder'
               }`}
               title="مرتب‌سازی و فیلتر"
             >
-              <Filter className="w-5 h-5" />
+              <Filter className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
               {(filterBy !== 'all' || sortBy !== 'name-asc') && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-darkCard" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-darkCard" />
               )}
-            </button>
-
-            {/* Add Athlete Button in Top Bar */}
-            <button
-              type="button"
-              onClick={onOpenAddModal}
-              className="w-10 h-10 rounded-full bg-brand-500 hover:bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/25 active:scale-95 transition-all"
-              title="ثبت ورزشکار جدید"
-            >
-              <Plus className="w-5 h-5 stroke-[2.5]" />
             </button>
 
             {/* New Version Update Notification Bell */}
@@ -261,11 +251,11 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               <button
                 type="button"
                 onClick={onOpenUpdates}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors relative"
+                className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors relative"
                 title="اعلان نسخه جدید برنامه (دانلود APK)"
               >
-                <Bell className="w-4 h-4 text-brand-500 animate-bounce" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-darkCard" />
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-500 animate-bounce" />
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-darkCard" />
               </button>
             )}
 
@@ -273,14 +263,14 @@ export const AthleteList: React.FC<AthleteListProps> = ({
             <button
               type="button"
               onClick={handlePullToRefresh}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors"
+              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors"
               title="تازه‌سازی"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-brand-500' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin text-brand-500' : ''}`} />
             </button>
 
             {/* Dark / Light Mode Toggle */}
-            <ThemeToggle />
+            <ThemeToggle className="shrink-0" />
           </div>
         </div>
 

@@ -40,7 +40,7 @@ export const ThemeToggle: React.FC<ThemeToggleProps> = ({ className = '' }) => {
       type="button"
       onClick={toggleTheme}
       aria-label="تغییر پوسته تاریک و روشن"
-      className={`relative w-10 h-10 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-darkBorder active:scale-90 transition-colors focus:outline-none ${className}`}
+      className={`relative w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-90 transition-colors focus:outline-none ${className}`}
       title={theme === 'dark' ? 'حالت روز' : 'حالت شب'}
     >
       <AnimatePresence mode="wait" initial={false}>
