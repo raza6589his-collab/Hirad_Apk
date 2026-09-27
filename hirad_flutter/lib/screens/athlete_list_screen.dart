@@ -667,7 +667,7 @@ class _AthleteListScreenState extends State<AthleteListScreen> {
                                       bottom: 10,
                                       right: 0,
                                       child: AlphabetQuickIndex(
-                                        availableLetters: letters,
+                                        letters: letters,
                                         onLetterSelected: _scrollToLetter,
                                       ),
                                     ),

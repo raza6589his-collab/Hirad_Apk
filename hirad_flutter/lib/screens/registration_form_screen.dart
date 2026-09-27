@@ -443,7 +443,7 @@ class _RegistrationFormScreenState extends State<RegistrationFormScreen> {
                           border: OutlineInputBorder(),
                         ),
                         validator: (v) {
-                          final res = ValidationUtils.validateNationalCode(v ?? '');
+                          final res = ValidationUtils.validateNationalId(v ?? '');
                           return res.isValid ? null : res.error;
                         },
                       ),

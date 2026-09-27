@@ -329,7 +329,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
     int newPaid = _athlete!.tuitionPaid;
     int newUnpaid = _athlete!.tuitionUnpaid ?? 0;
 
-    if (tx.type === 'payment') {
+    if (tx.type == 'payment') {
       newPaid = newPaid > tx.amount ? newPaid - tx.amount : 0;
       newUnpaid = newUnpaid + tx.amount;
     } else {
@@ -442,10 +442,11 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
               // Avatar with camera icon
               Stack(
                 children: [
-                  Avatar(
-                    fullName: athlete.fullName,
+                  AthleteAvatar(
+                    firstName: athlete.firstName,
+                    lastName: athlete.lastName,
                     photoPath: athlete.photoPath,
-                    size: 96,
+                    size: AvatarSize.xl,
                     heroTag: 'avatar-${athlete.id}',
                   ),
                   Positioned(
