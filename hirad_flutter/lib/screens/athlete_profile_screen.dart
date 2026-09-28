@@ -143,6 +143,7 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
 
   void _showAddPaymentDialog() {
     final amountController = TextEditingController();
+    final dateController = TextEditingController(text: JalaliUtils.getTodayJalali().formatted);
     final titleController = TextEditingController(text: 'واریز شهریه باشگاه');
     final noteController = TextEditingController();
 
@@ -175,6 +176,18 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                     );
                   }
                 },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: dateController,
+                keyboardType: TextInputType.datetime,
+                textDirection: TextDirection.ltr,
+                decoration: const InputDecoration(
+                  labelText: 'تاریخ پرداخت (شمسی) *',
+                  hintText: 'مثلاً ۱۴۰۵/۰۶/۲۵',
+                  prefixIcon: Icon(Icons.calendar_today, size: 18),
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -211,12 +224,16 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                 if (amount <= 0) return;
 
                 final today = JalaliUtils.getTodayJalali();
+                final payDate = dateController.text.trim().isNotEmpty
+                    ? ValidationUtils.toEnglishDigits(dateController.text.trim())
+                    : today.formatted;
+
                 final record = PaymentRecord(
                   id: 'pay-${DateTime.now().millisecondsSinceEpoch}',
-                  date: today.formatted,
+                  date: payDate,
                   amount: amount,
                   type: 'payment',
-                  title: titleController.text.trim(),
+                  title: titleController.text.trim().isNotEmpty ? titleController.text.trim() : 'واریز شهریه',
                   note: noteController.text.trim().isNotEmpty ? noteController.text.trim() : null,
                 );
 
@@ -707,43 +724,85 @@ class _AthleteProfileScreenState extends State<AthleteProfileScreen> {
                         itemBuilder: (ctx, i) {
                           final p = athlete.payments[i];
                           final isPay = p.type == 'payment';
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 4,
-                                    backgroundColor: isPay ? AppColors.paid : AppColors.debt,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkSubtle.withOpacity(0.5) : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(
+                                color: isDark ? AppColors.darkBorder.withOpacity(0.5) : Colors.grey[200]!,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(p.title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      Text('${p.date} ${p.note != null ? '• ${p.note}' : ''}',
-                                          style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                      Row(
+                                        children: [
+                                          Text(
+                                            p.title,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: (isPay ? AppColors.paid : AppColors.debt).withOpacity(0.12),
+                                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                                              border: Border.all(
+                                                color: (isPay ? AppColors.paid : AppColors.debt).withOpacity(0.3),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              isPay ? 'پرداخت‌شده' : 'ثبت بدهی',
+                                              style: TextStyle(
+                                                color: isPay ? AppColors.paid : AppColors.debt,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'تاریخ پرداخت: ${ValidationUtils.toPersianDigits(p.date)}${p.note != null ? ' • ${p.note}' : ''}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                ],
-                              ),
-                              Row(
-                                children: [
-                                  Text(
-                                    '${isPay ? '+' : '-'}${ValidationUtils.formatCurrencyToman(p.amount)}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isPay ? AppColors.paid : AppColors.debt,
+                                ),
+                                Row(
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        const Text('مبلغ پرداختی:', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                                        Text(
+                                          '${isPay ? '+' : '-'}${ValidationUtils.formatCurrencyToman(p.amount)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            color: isPay ? AppColors.paid : AppColors.debt,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 16, color: Colors.grey),
-                                    onPressed: () => _deleteTransaction(p.id),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
+                                      onPressed: () => _deleteTransaction(p.id),
+                                      tooltip: 'حذف این تراکنش',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),

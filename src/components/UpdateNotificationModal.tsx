@@ -23,41 +23,41 @@ interface UpdateNotificationModalProps {
 export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = ({
   isOpen,
   onClose,
-  currentVersion = '1.0.0',
-  newVersion = '1.1.0',
+  currentVersion = '1.1.0',
+  newVersion = '1.2.0',
 }) => {
   const releaseUrl = 'https://github.com/raza6589his-collab/Hirad_Apk/releases/latest';
 
   const features = [
     {
-      icon: <Calendar className="w-4 h-4 text-amber-500" />,
+      icon: <Sparkles className="w-4 h-4 text-amber-500" />,
+      title: 'آیکون رسمی و نشان اختصاصی باشگاه هیراد',
+      desc: 'جایگزینی آیکون اپلیکیشن اندروید و سربرگ برنامه با نشان گرافیکی فیگور بدنسازی باشگاه.',
+    },
+    {
+      icon: <UserCheck className="w-4 h-4 text-brand-500" />,
+      title: 'درج عنوان «مربی: عبداللهی» در سربرگ',
+      desc: 'نمایش هویت و نام مربی باشگاه دقیقاً در کنار عنوان باشگاه هیراد در بالای اپلیکیشن.',
+    },
+    {
+      icon: <CreditCard className="w-4 h-4 text-emerald-500" />,
+      title: 'ذخیره کامل سوابق پرداخت شهریه داخل حساب ورزشکار',
+      desc: 'ثبت جداگانه و نامحدود هر واریزی با تعیین تاریخ پرداخت شمسی (مثلاً ۲۵/۰۶/۱۴۰۵)، مبلغ و وضعیت «پرداخت‌شده» بدون حذف سوابق قبلی.',
+    },
+    {
+      icon: <Smartphone className="w-4 h-4 text-blue-500" />,
+      title: 'بهینه‌سازی نوار ابزار و چیدمان آیکون‌ها',
+      desc: 'حذف دکمه مثبت اضافی از هدر و قرارگیری کامل و استاندارد آیکون شب و روز بدون بریدگی در لبه کادر.',
+    },
+    {
+      icon: <Calendar className="w-4 h-4 text-purple-500" />,
       title: 'انتخاب سریع و جستجوی سال تولد',
       desc: 'پرش مستقیم به دهه‌های ۵۰، ۶۰، ۷۰ و امکان تایپ مستقیم ۴ رقم سال تولد بدون اسکرول طولانی.',
     },
     {
-      icon: <Smartphone className="w-4 h-4 text-blue-500" />,
-      title: 'اصلاح کیبورد و دید کامل مبالغ شهریه',
-      desc: 'اسکرول خودکار هنگام باز شدن کیبورد و نمایش واضح تعداد ارقام و مبلغ به حروف و تومان.',
-    },
-    {
-      icon: <CreditCard className="w-4 h-4 text-emerald-500" />,
-      title: 'سیستم کامل حسابداری و سوابق پرداخت',
-      desc: 'تفکیک شهریه ماه جاری، کل مبالغ پرداخت‌شده، محاسبه خودکار مانده بدهی و ثبت پرداخت جدید بدون پاک شدن سوابق.',
-    },
-    {
-      icon: <UserCheck className="w-4 h-4 text-teal-500" />,
-      title: 'ثبت فوق‌سریع حضور با کد ملی',
-      desc: 'مسئول باشگاه با وارد کردن کد ملی در صفحه اصلی، حضور جلسه روزانه ورزشکار را در ۳ ثانیه ثبت می‌کند.',
-    },
-    {
-      icon: <CheckCircle2 className="w-4 h-4 text-purple-500" />,
-      title: 'شمارنده و تاریخچه جلسات حضور',
-      desc: 'مشاهده کامل تاریخ و ساعت تمام جلساتی که ورزشکار به باشگاه آمده و محاسبه تعداد جلسات.',
-    },
-    {
-      icon: <Camera className="w-4 h-4 text-rose-500" />,
-      title: 'آپلود مستقیم عکس از گوشی و کامپیوتر',
-      desc: 'امکان انتخاب یا تغییر عکس پروفایل هر ورزشکار مستقیماً از گالری دستگاه برای مربی.',
+      icon: <CheckCircle2 className="w-4 h-4 text-teal-500" />,
+      title: 'ثبت سریع حضور و غیاب با کد ملی',
+      desc: 'ثبت ورود ورزشکار در درب باشگاه در کمتر از ۳ ثانیه تنها با وارد کردن کد ملی.',
     },
   ];
 

@@ -176,16 +176,16 @@ export const AthleteList: React.FC<AthleteListProps> = ({
         <div className="flex items-center justify-between gap-1">
           {/* Logo & Title */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-brand-500/20 shrink-0">
-              <Dumbbell className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden bg-slate-900 border border-brand-500/30 flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0">
+              <img src="/app-icon.png" alt="باشگاه هیراد" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
                   باشگاه هیراد
                 </h1>
-                <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20">
-                  مربی
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                  مربی: عبداللهی
                 </span>
               </div>
               <p className="text-[10px] sm:text-[11px] font-medium text-slate-500 dark:text-slate-400">

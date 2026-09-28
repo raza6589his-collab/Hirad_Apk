@@ -61,6 +61,7 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
   // New Payment Form States
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentTitle, setPaymentTitle] = useState('واریز شهریه باشگاه');
+  const [paymentDate, setPaymentDate] = useState(() => getTodayJalali().formatted);
   const [paymentNote, setPaymentNote] = useState('');
 
   // New Charge Form States
@@ -139,9 +140,11 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
     const amountNum = parseNumberInput(paymentAmount);
     if (!amountNum || amountNum <= 0) return;
 
+    const normalizedDate = toEnglishDigits(paymentDate).trim() || today.formatted;
+
     const newPayment: PaymentRecord = {
       id: 'pay-' + Date.now(),
-      date: today.formatted,
+      date: normalizedDate,
       amount: amountNum,
       type: 'payment',
       title: paymentTitle.trim() || 'واریزی شهریه',
@@ -162,7 +165,9 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
 
     onUpdate(updated);
     setPaymentAmount('');
+    setPaymentTitle('واریزی شهریه');
     setPaymentNote('');
+    setPaymentDate(today.formatted);
     setShowAddPaymentModal(false);
   };
 
@@ -477,44 +482,52 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
                   هنوز هیچ پرداخت مجزایی ثبت نشده است.
                 </p>
               ) : (
-                <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {payments.map((p) => {
                     const isPayment = p.type === 'payment';
                     return (
                       <div
                         key={p.id}
-                        className="p-2.5 rounded-xl bg-slate-50 dark:bg-darkSubtle/50 border border-slate-100 dark:border-darkBorder/60 flex items-center justify-between text-xs"
+                        className="p-3 rounded-2xl bg-slate-50 dark:bg-darkSubtle/50 border border-slate-100 dark:border-darkBorder/60 flex items-center justify-between text-xs transition-all hover:bg-slate-100/70 dark:hover:bg-darkSubtle"
                       >
-                        <div className="space-y-0.5">
-                          <div className="flex items-center gap-1.5">
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                isPayment ? 'bg-emerald-500' : 'bg-rose-500'
-                              }`}
-                            />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-slate-800 dark:text-slate-200">
                               {p.title}
                             </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                isPayment
+                                  ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                                  : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-500/20'
+                              }`}
+                            >
+                              {isPayment ? 'پرداخت‌شده' : 'ثبت بدهی دوره'}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-slate-400 block">
-                            {p.date} {p.note ? `• ${p.note}` : ''}
-                          </span>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                            <span>تاریخ پرداخت: <strong className="font-mono text-slate-700 dark:text-slate-300">{toPersianDigits(p.date)}</strong></span>
+                            {p.note && <span className="mr-1.5">• {p.note}</span>}
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-mono font-bold ${
-                              isPayment
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-rose-500'
-                            }`}
-                          >
-                            {isPayment ? '+' : '-'}{formatCurrencyToman(p.amount)}
-                          </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-left">
+                            <span className="text-[10px] text-slate-400 block">مبلغ پرداختی:</span>
+                            <span
+                              className={`font-mono text-xs font-black ${
+                                isPayment
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : 'text-rose-500'
+                              }`}
+                            >
+                              {isPayment ? '+' : '-'}{formatCurrencyToman(p.amount)}
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleDeleteTransaction(p.id)}
-                            className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                             title="حذف این تراکنش"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -761,6 +774,23 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
                     {formatCurrencyToman(parseNumberInput(paymentAmount))}
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  تاریخ پرداخت (شمسی) *
+                </label>
+                <input
+                  type="text"
+                  dir="ltr"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(toEnglishDigits(e.target.value))}
+                  placeholder="مثلاً ۲۵/۰۶/۱۴۰۵ یا ۱۴۰۵/۰۶/۲۵"
+                  className="w-full text-left py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm font-mono outline-none focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  پیش‌فرض: {today.formatted} (امکان تایپ تاریخ‌های دلخواه مانند ۲۵/۰۶/۱۴۰۵)
+                </p>
               </div>
 
               <div>

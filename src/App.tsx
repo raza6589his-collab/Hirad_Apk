@@ -25,13 +25,13 @@ export const App: React.FC = () => {
     const data = getStoredAthletes();
     setAthletes(data);
 
-    // Show new version update notification to the coach
-    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_1_update');
+    // Show new version v1.2.0 update notification to users
+    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_2_update');
     if (!hasSeenUpdate) {
       const timer = setTimeout(() => {
         setIsUpdateNotificationOpen(true);
-        sessionStorage.setItem('hirad_seen_v1_1_update', 'true');
-      }, 700);
+        sessionStorage.setItem('hirad_seen_v1_2_update', 'true');
+      }, 600);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -241,8 +241,8 @@ export const App: React.FC = () => {
         <UpdateNotificationModal
           isOpen={isUpdateNotificationOpen}
           onClose={() => setIsUpdateNotificationOpen(false)}
-          currentVersion="1.0.0"
-          newVersion="1.1.0"
+          currentVersion="1.1.0"
+          newVersion="1.2.0"
         />
 
         {/* Global Toast Messages */}
