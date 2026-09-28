@@ -87,32 +87,11 @@ export function validateAmount(amount: number | string, isRequired: boolean = tr
   return { isValid: true };
 }
 
-/**
- * Formats a number with thousand separators and Toman currency label
- * e.g., 1500000 -> "۱,۵۰۰,۰۰۰ تومان"
- */
-export function formatCurrencyToman(amount: number | undefined | null, includeUnit: boolean = true): string {
-  if (amount === undefined || amount === null || isNaN(amount)) {
-    return includeUnit ? `۰ تومان` : '۰';
-  }
-  const parts = Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const persianParts = toPersianDigits(parts);
-  return includeUnit ? `${persianParts} تومان` : persianParts;
-}
-
-/**
- * Formats user input as they type numbers with thousand separators
- */
-export function formatNumberInput(value: string): string {
-  const clean = toEnglishDigits(value).replace(/[^0-9]/g, '');
-  if (!clean) return '';
-  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-/**
- * Parse thousand separated input to number
- */
-export function parseNumberInput(value: string): number {
-  const clean = toEnglishDigits(value).replace(/[^0-9]/g, '');
-  return clean ? parseInt(clean, 10) : 0;
-}
+// Re-export currency formatting utilities from dedicated currency module
+export {
+  formatCurrencyToman,
+  formatSignedCurrencyToman,
+  formatThousandsPersian,
+  formatNumberInput,
+  parseNumberInput,
+} from './currency';

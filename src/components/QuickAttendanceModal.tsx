@@ -3,18 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   UserCheck,
-  Search,
   CheckCircle2,
   AlertTriangle,
   UserPlus,
-  Clock,
-  Calendar,
   CreditCard,
+  RotateCcw,
   Sparkles,
 } from 'lucide-react';
 import { Athlete, AttendanceRecord } from '../types/athlete';
 import { toEnglishDigits, toPersianDigits, getTodayJalali } from '../utils/jalali';
-import { formatCurrencyToman } from '../utils/validation';
+import { formatCurrencyToman } from '../utils/currency';
 import { Avatar } from './Avatar';
 
 interface QuickAttendanceModalProps {
@@ -22,6 +20,7 @@ interface QuickAttendanceModalProps {
   onClose: () => void;
   athletes: Athlete[];
   onRecordAttendance: (athleteId: string, attendance: AttendanceRecord) => void;
+  onUndoAttendance?: (athleteId: string, attendanceId: string) => void;
   onRegisterNewAthlete: (nationalCode?: string) => void;
 }
 
@@ -30,72 +29,118 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
   onClose,
   athletes,
   onRecordAttendance,
+  onUndoAttendance,
   onRegisterNewAthlete,
 }) => {
   const [nationalIdInput, setNationalIdInput] = useState('');
-  const [matchedAthlete, setMatchedAthlete] = useState<Athlete | null>(null);
-  const [successAthlete, setSuccessAthlete] = useState<{ athlete: Athlete; sessionNum: number } | null>(null);
+  const [duplicateWarningAthlete, setDuplicateWarningAthlete] = useState<Athlete | null>(null);
+  const [recentCheckIn, setRecentCheckIn] = useState<{
+    athlete: Athlete;
+    attendanceId: string;
+    sessionNum: number;
+    timeStr: string;
+  } | null>(null);
+  const [undoSecondsLeft, setUndoSecondsLeft] = useState<number>(5);
+
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      setNationalIdInput('');
-      setMatchedAthlete(null);
-      setSuccessAthlete(null);
-      setTimeout(() => inputRef.current?.focus(), 150);
-    }
-  }, [isOpen]);
-
-  // Live lookup as user types
-  useEffect(() => {
-    const clean = toEnglishDigits(nationalIdInput).trim();
-    if (clean.length >= 10) {
-      const found = athletes.find((a) => toEnglishDigits(a.nationalId) === clean);
-      setMatchedAthlete(found || null);
-    } else {
-      setMatchedAthlete(null);
-    }
-  }, [nationalIdInput, athletes]);
-
-  const handleInputChange = (val: string) => {
-    const clean = toEnglishDigits(val).replace(/[^0-9]/g, '');
-    setNationalIdInput(clean);
-  };
-
-  const handleConfirmAttendance = (ath: Athlete) => {
-    const today = getTodayJalali();
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const pastAttendances = ath.attendances || [];
-    const nextSessionNum = pastAttendances.length + 1;
-
-    const newRecord: AttendanceRecord = {
-      id: 'att-' + Date.now(),
-      date: today.formatted,
-      time: timeStr,
-      sessionNumber: nextSessionNum,
-    };
-
-    onRecordAttendance(ath.id, newRecord);
-
-    setSuccessAthlete({ athlete: ath, sessionNum: nextSessionNum });
-    setNationalIdInput('');
-    setMatchedAthlete(null);
-
-    // Auto-clear success message after 2.5s and refocus for the next athlete
-    setTimeout(() => {
-      setSuccessAthlete(null);
-      inputRef.current?.focus();
-    }, 2400);
-  };
+  const undoIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const today = getTodayJalali();
   const now = new Date();
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-  const hasDebt = matchedAthlete ? !!(matchedAthlete.tuitionUnpaid && matchedAthlete.tuitionUnpaid > 0) : false;
-  const alreadyCheckedInToday = matchedAthlete?.attendances?.some((att) => att.date === today.formatted);
+  // Reset state on modal open
+  useEffect(() => {
+    if (isOpen) {
+      setNationalIdInput('');
+      setDuplicateWarningAthlete(null);
+      setRecentCheckIn(null);
+      setTimeout(() => inputRef.current?.focus(), 150);
+    } else {
+      if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+    };
+  }, []);
+
+  const triggerAttendance = (ath: Athlete) => {
+    const todayJalali = getTodayJalali();
+    const currentTime = new Date();
+    const formattedTime = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+    const nextSessionNum = (ath.attendances?.length || 0) + 1;
+    const attendanceId = 'att-' + Date.now();
+
+    const newRecord: AttendanceRecord = {
+      id: attendanceId,
+      date: todayJalali.formatted,
+      time: formattedTime,
+      sessionNumber: nextSessionNum,
+    };
+
+    onRecordAttendance(ath.id, newRecord);
+
+    setRecentCheckIn({
+      athlete: ath,
+      attendanceId,
+      sessionNum: nextSessionNum,
+      timeStr: formattedTime,
+    });
+    setNationalIdInput('');
+    setDuplicateWarningAthlete(null);
+    setUndoSecondsLeft(5);
+
+    if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+    undoIntervalRef.current = setInterval(() => {
+      setUndoSecondsLeft((prev) => {
+        if (prev <= 1) {
+          if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+          setRecentCheckIn(null);
+          setTimeout(() => inputRef.current?.focus(), 100);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleInputChange = (val: string) => {
+    const clean = toEnglishDigits(val).replace(/[^0-9]/g, '');
+    setNationalIdInput(clean);
+
+    // Auto-submit when exactly 10 valid digits are typed
+    if (clean.length === 10) {
+      const found = athletes.find((a) => toEnglishDigits(a.nationalId) === clean);
+      if (found) {
+        const todayDate = getTodayJalali().formatted;
+        const alreadyCheckedInToday = found.attendances?.some((att) => att.date === todayDate);
+        if (alreadyCheckedInToday) {
+          setDuplicateWarningAthlete(found);
+        } else {
+          triggerAttendance(found);
+        }
+      }
+    } else {
+      setDuplicateWarningAthlete(null);
+    }
+  };
+
+  const handleUndo = () => {
+    if (!recentCheckIn) return;
+    if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+    if (onUndoAttendance) {
+      onUndoAttendance(recentCheckIn.athlete.id, recentCheckIn.attendanceId);
+    }
+    setNationalIdInput(recentCheckIn.athlete.nationalId);
+    setRecentCheckIn(null);
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const isUnknown10Digit = nationalIdInput.length === 10 &&
+    !athletes.some((a) => toEnglishDigits(a.nationalId) === nationalIdInput);
 
   return (
     <AnimatePresence>
@@ -120,16 +165,16 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-4 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
                   <UserCheck className="w-6 h-6 text-white" />
                 </div>
                 <div>
                   <h2 className="text-base font-black tracking-tight">ثبت سریع حضور ورزشکار</h2>
                   <p className="text-xs text-emerald-100 flex items-center gap-1.5 mt-0.5">
-                    <span>{today.formatted}</span>
+                    <span>{today.formattedPersian}</span>
                     <span>•</span>
-                    <span>ساعت {timeStr}</span>
+                    <span>ساعت {toPersianDigits(timeStr)}</span>
                   </p>
                 </div>
               </div>
@@ -137,13 +182,14 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
                 type="button"
                 onClick={onClose}
                 className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                aria-label="بستن"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Body */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-4">
               {/* National ID Search Input */}
               <div>
                 <label className="block text-xs font-black text-slate-700 dark:text-slate-300 mb-2">
@@ -156,115 +202,112 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
                     inputMode="numeric"
                     dir="ltr"
                     maxLength={10}
-                    value={nationalIdInput}
+                    value={toPersianDigits(nationalIdInput)}
                     onChange={(e) => handleInputChange(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && matchedAthlete) {
-                        handleConfirmAttendance(matchedAthlete);
-                      }
-                    }}
-                    placeholder="0012345679"
-                    className="w-full text-center tracking-widest text-xl font-mono py-3.5 px-4 rounded-2xl bg-slate-50 dark:bg-darkSubtle border-2 border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-colors shadow-inner"
+                    placeholder="مثال: ۰۰۱۲۳۴۵۶۷۹"
+                    className="w-full text-center tracking-widest text-xl py-3.5 px-4 rounded-2xl bg-slate-50 dark:bg-darkSubtle border-2 border-slate-200 dark:border-darkBorder text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-colors shadow-inner font-bold"
                   />
-                  <CreditCard className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2" />
+                  <CreditCard className="w-5 h-5 text-slate-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1">
+                <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5 px-1 font-semibold">
                   <span>تعداد ارقام: {toPersianDigits(nationalIdInput.length)} از ۱۰</span>
-                  <span>یا دکمه Enter را برای تایید بزنید</span>
+                  <span>ثبت خودکار پس از تکمیل ۱۰ رقم</span>
                 </div>
               </div>
 
-              {/* Success Notification Animation */}
+              {/* Success Notification Animation with Undo Button */}
               <AnimatePresence>
-                {successAthlete && (
+                {recentCheckIn && (
                   <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
+                    initial={{ scale: 0.9, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.8, opacity: 0 }}
-                    className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-center space-y-2"
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 text-center space-y-3 shadow-md"
                   >
-                    <div className="w-12 h-12 rounded-full bg-emerald-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                      <CheckCircle2 className="w-7 h-7" />
-                    </div>
-                    <h3 className="text-sm font-black text-emerald-800 dark:text-emerald-200">
-                      حضور {successAthlete.athlete.firstName} {successAthlete.athlete.lastName} ثبت شد!
-                    </h3>
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      جلسه شماره {toPersianDigits(successAthlete.sessionNum)} • {today.formatted} ساعت {timeStr}
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Matched Athlete Card */}
-              <AnimatePresence>
-                {matchedAthlete && !successAthlete && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="p-4 rounded-2xl bg-slate-50 dark:bg-darkSubtle/60 border border-slate-200 dark:border-darkBorder space-y-3"
-                  >
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center gap-3">
                       <Avatar
-                        firstName={matchedAthlete.firstName}
-                        lastName={matchedAthlete.lastName}
-                        photo={matchedAthlete.photo}
+                        firstName={recentCheckIn.athlete.firstName}
+                        lastName={recentCheckIn.athlete.lastName}
+                        photo={recentCheckIn.athlete.photo}
                         size="md"
-                        status={hasDebt ? 'unpaid' : 'paid'}
+                        status="paid"
                       />
-                      <div className="flex-1">
-                        <h3 className="text-base font-black text-slate-900 dark:text-white">
-                          {matchedAthlete.firstName} {matchedAthlete.lastName}
-                        </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {matchedAthlete.trainingCategory} • {matchedAthlete.mobileNumber}
+                      <div className="text-right">
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                            حضور {recentCheckIn.athlete.firstName} {recentCheckIn.athlete.lastName} ثبت شد!
+                          </h3>
+                        </div>
+                        <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                          جلسه شماره {toPersianDigits(recentCheckIn.sessionNum)} • ساعت {toPersianDigits(recentCheckIn.timeStr)}
                         </p>
                       </div>
                     </div>
 
-                    {/* Status & Session info */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-200/60 dark:border-darkBorder/60">
-                      {hasDebt ? (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-black bg-rose-500 text-white flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          بدهی: {formatCurrencyToman(matchedAthlete.tuitionUnpaid)}
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-600 text-white flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          تسویه کامل
-                        </span>
-                      )}
-
-                      <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20">
-                        جلسه جدید: شماره {toPersianDigits((matchedAthlete.attendances?.length || 0) + 1)}
+                    {/* Undo action bar with timer */}
+                    <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                        امکان لغو تا {toPersianDigits(undoSecondsLeft)} ثانیه دیگر
                       </span>
+                      <button
+                        type="button"
+                        onClick={handleUndo}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm active:scale-95 transition-all"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        لغو / بازگشت (Undo)
+                      </button>
                     </div>
-
-                    {alreadyCheckedInToday && (
-                      <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs font-semibold flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span>این ورزشکار امروز قبلاً ثبت حضور شده است.</span>
-                      </div>
-                    )}
-
-                    {/* Instant Check-in Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleConfirmAttendance(matchedAthlete)}
-                      className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm shadow-lg shadow-emerald-600/25 active:scale-95 transition-all flex items-center justify-center gap-2 mt-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>تایید و ثبت ورود این جلسه</span>
-                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {/* Not Found Alert */}
+              {/* Duplicate Same-Day Check-in Warning */}
               <AnimatePresence>
-                {nationalIdInput.length === 10 && !matchedAthlete && !successAthlete && (
+                {duplicateWarningAthlete && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-500/40 space-y-3"
+                  >
+                    <div className="flex items-center gap-2.5 text-amber-800 dark:text-amber-200">
+                      <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                      <div>
+                        <h4 className="text-xs font-black">هشدار: حضور قبلی در امروز</h4>
+                        <p className="text-[11px] font-medium mt-0.5">
+                          «{duplicateWarningAthlete.firstName} {duplicateWarningAthlete.lastName}» امروز قبلاً ثبت حضور شده است.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDuplicateWarningAthlete(null);
+                          setNationalIdInput('');
+                        }}
+                        className="flex-1 py-2 rounded-xl bg-slate-100 dark:bg-darkBorder text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-200 transition-colors"
+                      >
+                        انصراف
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => triggerAttendance(duplicateWarningAthlete)}
+                        className="flex-1 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md transition-colors"
+                      >
+                        ثبت جلسه مجدد
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Not Found Alert with Graceful Registration Button */}
+              <AnimatePresence>
+                {isUnknown10Digit && !recentCheckIn && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -272,7 +315,7 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
                     className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 text-center space-y-3"
                   >
                     <p className="text-xs font-bold text-rose-700 dark:text-rose-300">
-                      ورزشکاری با کد ملی {toPersianDigits(nationalIdInput)} در باشگاه ثبت نشده است.
+                      ورزشکاری با کد ملی <bdi dir="ltr">{toPersianDigits(nationalIdInput)}</bdi> در باشگاه ثبت نشده است.
                     </p>
                     <button
                       type="button"
@@ -280,7 +323,7 @@ export const QuickAttendanceModal: React.FC<QuickAttendanceModalProps> = ({
                         onClose();
                         onRegisterNewAthlete(nationalIdInput);
                       }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-md"
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 transition-colors shadow-md active:scale-95"
                     >
                       <UserPlus className="w-4 h-4" />
                       ثبت‌نام این ورزشکار در باشگاه

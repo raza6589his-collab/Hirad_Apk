@@ -15,6 +15,9 @@ import {
   RefreshCw,
   UserCheck,
   Bell,
+  AlertCircle,
+  Sparkles,
+  History,
 } from 'lucide-react';
 import { Athlete, SortOption, PaymentFilter } from '../types/athlete';
 import { Avatar } from './Avatar';
@@ -59,6 +62,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [swipedAthleteId, setSwipedAthleteId] = useState<string | null>(null);
   const [activeScrubLetter, setActiveScrubLetter] = useState<string | null>(null);
+  const [athleteToDelete, setAthleteToDelete] = useState<Athlete | null>(null);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sectionRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -171,20 +175,20 @@ export const AthleteList: React.FC<AthleteListProps> = ({
       onClick={() => setSwipedAthleteId(null)}
       className="flex flex-col h-full bg-slate-50 dark:bg-darkBg text-slate-900 dark:text-white relative select-none"
     >
-      {/* Top App Bar - Fixed, Non-shifting */}
+      {/* Top App Bar - Fixed, Non-shifting with EXACTLY 4 Visible Controls */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-darkCard/95 border-b border-slate-200/80 dark:border-darkBorder backdrop-blur-md px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm transition-colors">
-        <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center justify-between gap-1 sm:gap-2">
           {/* Logo & Title */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl overflow-hidden bg-slate-900 border border-brand-500/30 flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <div className="w-10 h-10 rounded-2xl overflow-hidden bg-slate-900 border border-brand-500/30 flex items-center justify-center shadow-md shadow-brand-500/20 shrink-0">
               <img src="/app-icon.png" alt="باشگاه هیراد" className="w-full h-full object-cover" />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-900 dark:text-white truncate">
                   باشگاه هیراد
                 </h1>
-                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20">
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border border-brand-500/20 shrink-0">
                   مربی: عبداللهی
                 </span>
               </div>
@@ -194,9 +198,9 @@ export const AthleteList: React.FC<AthleteListProps> = ({
             </div>
           </div>
 
-          {/* Standardized Circular Action Buttons (Fully contained within frame) */}
-          <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
-            {/* Search Button */}
+          {/* Exactly 4 Standardized Action Buttons (44x44px touch targets) */}
+          <div className="flex items-center gap-1 shrink-0">
+            {/* 1. Search Toggle Button */}
             <button
               type="button"
               onClick={() => {
@@ -207,69 +211,46 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                   setSearchQuery('');
                 }
               }}
-              className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 transition-colors active:scale-95 ${
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all active:scale-95 ${
                 isSearchOpen
-                  ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder'
+                  ? 'bg-brand-500 text-white shadow-md shadow-brand-500/25 ring-2 ring-brand-500/30'
+                  : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-darkSubtle hover:bg-slate-200 dark:hover:bg-darkBorder border border-slate-200/60 dark:border-darkBorder'
               }`}
-              title="جستجو"
+              aria-label="جستجو در لیست ورزشکاران"
             >
-              <Search className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <Search className="w-5 h-5" />
             </button>
 
-            {/* Quick Attendance Check-in Button */}
+            {/* 2. Quick Attendance Check-in Button */}
             {onOpenAttendance && (
               <button
                 type="button"
                 onClick={onOpenAttendance}
-                className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full shrink-0 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center border border-emerald-500/20 active:scale-95 transition-all shadow-sm"
-                title="ثبت سریع حضور ورزشکار با کد ملی"
+                className="w-11 h-11 rounded-2xl shrink-0 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white flex items-center justify-center border border-emerald-500/25 active:scale-95 transition-all shadow-sm"
+                aria-label="ثبت سریع حضور ورزشکار با کد ملی"
               >
-                <UserCheck className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+                <UserCheck className="w-5 h-5" />
               </button>
             )}
 
-            {/* Sort & Filter Button */}
+            {/* 3. Sort & Options Menu Drawer Toggle */}
             <button
               type="button"
               onClick={() => setIsSortMenuOpen((prev) => !prev)}
-              className={`w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 transition-colors relative active:scale-95 ${
-                filterBy !== 'all' || sortBy !== 'name-asc'
-                  ? 'text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/40'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder'
+              className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all relative active:scale-95 ${
+                isSortMenuOpen || filterBy !== 'all' || sortBy !== 'name-asc'
+                  ? 'text-brand-600 dark:text-brand-400 bg-brand-500/10 border border-brand-500/30'
+                  : 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-darkSubtle hover:bg-slate-200 dark:hover:bg-darkBorder border border-slate-200/60 dark:border-darkBorder'
               }`}
-              title="مرتب‌سازی و فیلتر"
+              aria-label="مرتب‌سازی و گزینه‌های مدیریت"
             >
-              <Filter className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+              <ArrowUpDown className="w-5 h-5" />
               {(filterBy !== 'all' || sortBy !== 'name-asc') && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-brand-500 ring-2 ring-white dark:ring-darkCard" />
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-brand-500 ring-2 ring-white dark:ring-darkCard" />
               )}
             </button>
 
-            {/* New Version Update Notification Bell */}
-            {onOpenUpdates && (
-              <button
-                type="button"
-                onClick={onOpenUpdates}
-                className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors relative"
-                title="اعلان نسخه جدید برنامه (دانلود APK)"
-              >
-                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-brand-500 animate-bounce" />
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white dark:ring-darkCard" />
-              </button>
-            )}
-
-            {/* Refresh Button */}
-            <button
-              type="button"
-              onClick={handlePullToRefresh}
-              className="w-8.5 h-8.5 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-darkBorder active:scale-95 transition-colors"
-              title="تازه‌سازی"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isRefreshing ? 'animate-spin text-brand-500' : ''}`} />
-            </button>
-
-            {/* Dark / Light Mode Toggle */}
+            {/* 4. Theme Toggle (Directly reachable on header) */}
             <ThemeToggle className="shrink-0" />
           </div>
         </div>
@@ -317,7 +298,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               e.stopPropagation();
               setFilterBy('all');
             }}
-            className={`py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all ${
+            className={`min-h-[38px] py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all ${
               filterBy === 'all'
                 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
                 : 'bg-slate-100 dark:bg-darkSubtle text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-darkBorder'
@@ -333,7 +314,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               e.stopPropagation();
               setFilterBy('unpaid');
             }}
-            className={`py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 ${
+            className={`min-h-[38px] py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 ${
               filterBy === 'unpaid'
                 ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/20'
                 : 'bg-slate-100 dark:bg-darkSubtle text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
@@ -356,7 +337,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               e.stopPropagation();
               setFilterBy('paid');
             }}
-            className={`py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 ${
+            className={`min-h-[38px] py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 ${
               filterBy === 'paid'
                 ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/20'
                 : 'bg-slate-100 dark:bg-darkSubtle text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
@@ -374,89 +355,142 @@ export const AthleteList: React.FC<AthleteListProps> = ({
         </div>
       </header>
 
-      {/* Sort Menu Drawer */}
+      {/* Sort Menu Drawer & Operations (Visible text, 44px targets, no touch tooltips) */}
       <AnimatePresence>
         {isSortMenuOpen && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="z-20 bg-white dark:bg-darkCard border-b border-slate-200 dark:border-darkBorder p-4 shadow-lg flex flex-col gap-3"
+            className="z-20 bg-white dark:bg-darkCard border-b border-slate-200 dark:border-darkBorder p-4 shadow-xl flex flex-col gap-3.5"
           >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <ArrowUpDown className="w-3.5 h-3.5 text-brand-500" />
-                مرتب‌سازی لیست بر اساس:
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-darkBorder/60">
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <ArrowUpDown className="w-4 h-4 text-brand-500" />
+                مرتب‌سازی و امکانات مدیریت
               </span>
               <button
                 type="button"
                 onClick={() => setIsSortMenuOpen(false)}
-                className="text-xs font-bold text-brand-600 dark:text-brand-400"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-darkSubtle"
+                aria-label="بستن منو"
               >
-                بستن
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSortBy('name-asc');
-                  setIsSortMenuOpen(false);
-                }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-right ${
-                  sortBy === 'name-asc'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                نام و نام خانوادگی (الف - ی)
-              </button>
+            {/* Sort Options with 4 Distinct Buttons & Icons */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                ترتیب نمایش اعضا:
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortBy('name-asc');
+                    setIsSortMenuOpen(false);
+                  }}
+                  className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-right flex items-center gap-2 ${
+                    sortBy === 'name-asc'
+                      ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
+                      : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-darkBorder'
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="truncate">نام (الف تا ی)</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSortBy('unpaid-first');
-                  setIsSortMenuOpen(false);
-                }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-right ${
-                  sortBy === 'unpaid-first'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                بدهکاران در ابتدا ⚠️
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortBy('unpaid-first');
+                    setIsSortMenuOpen(false);
+                  }}
+                  className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-right flex items-center gap-2 ${
+                    sortBy === 'unpaid-first'
+                      ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                      : 'bg-slate-100 dark:bg-darkSubtle text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30'
+                  }`}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span className="truncate">ابتدا بدهکاران</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSortBy('date-newest');
-                  setIsSortMenuOpen(false);
-                }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-right ${
-                  sortBy === 'date-newest'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                جدیدترین ثبت‌نام‌ها
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortBy('date-newest');
+                    setIsSortMenuOpen(false);
+                  }}
+                  className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-right flex items-center gap-2 ${
+                    sortBy === 'date-newest'
+                      ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
+                      : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-darkBorder'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 shrink-0" />
+                  <span className="truncate">جدیدترین اعضا</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSortBy('date-oldest');
-                  setIsSortMenuOpen(false);
-                }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all text-right ${
-                  sortBy === 'date-oldest'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300'
-                }`}
-              >
-                قدیمی‌ترین اعضا
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortBy('date-oldest');
+                    setIsSortMenuOpen(false);
+                  }}
+                  className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold transition-all text-right flex items-center gap-2 ${
+                    sortBy === 'date-oldest'
+                      ? 'bg-brand-500 text-white shadow-md shadow-brand-500/20'
+                      : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-darkBorder'
+                  }`}
+                >
+                  <History className="w-4 h-4 shrink-0" />
+                  <span className="truncate">قدیمی‌ترین اعضا</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Actions (moved from header to avoid clutter, visible text, 44px touch targets) */}
+            <div className="pt-2 border-t border-slate-100 dark:border-darkBorder/60 space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                ابزارها و عملیات:
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await handlePullToRefresh();
+                    setIsSortMenuOpen(false);
+                  }}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-darkSubtle hover:bg-slate-200 dark:hover:bg-darkBorder text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-between transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <RefreshCw className={`w-4 h-4 text-brand-500 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    <span>تازه‌سازی اطلاعات باشگاه</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-normal">بروزرسانی داده‌ها</span>
+                </button>
+
+                {onOpenUpdates && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSortMenuOpen(false);
+                      onOpenUpdates();
+                    }}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-between border border-amber-500/20 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-amber-500" />
+                      <span>بررسی و دانلود نسخه جدید (APK)</span>
+                    </div>
+                    <span className="text-[10px] bg-amber-500 text-white font-extrabold px-1.5 py-0.5 rounded-md">
+                      دانلود
+                    </span>
+                  </button>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -473,24 +507,33 @@ export const AthleteList: React.FC<AthleteListProps> = ({
               className="flex flex-col items-center justify-center p-8 text-center mt-12 space-y-4"
             >
               <div className="w-20 h-20 rounded-3xl bg-brand-50 dark:bg-brand-950/40 border border-brand-500/20 flex items-center justify-center text-brand-500 shadow-xl shadow-brand-500/10">
-                <Users className="w-10 h-10" />
+                {searchQuery ? <Search className="w-10 h-10" /> : <Dumbbell className="w-10 h-10" />}
               </div>
               <div className="max-w-xs space-y-1.5">
                 <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  {searchQuery ? 'ورزشکاری یافت نشد' : 'هنوز ورزشکاری ثبت نشده است'}
+                  {searchQuery ? 'ورزشکاری با این مشخصات یافت نشد' : 'هنوز ورزشکاری ثبت نشده است'}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                   {searchQuery
-                    ? 'هیچ ورزشکاری با مشخصات جستجو شده تطابق ندارد. عبارت دیگری را امتحان کنید.'
-                    : 'برای افزودن اولین ورزشکار باشگاه، روی دکمه زیر ضربه بزنید.'}
+                    ? `هیچ ورزشکاری با مشخصات «${searchQuery}» پیدا نشد. عبارت دیگری را امتحان کنید.`
+                    : 'اطلاعات ورزشکاران، شهریه، سوابق پرداخت و حضور و غیاب در این بخش مدیریت می‌شوند.'}
                 </p>
               </div>
 
-              {!searchQuery && (
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="min-h-[44px] inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-slate-200 dark:bg-darkSubtle text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-300 dark:hover:bg-darkBorder transition-all"
+                >
+                  <X className="w-4 h-4" />
+                  پاک کردن جستجو
+                </button>
+              ) : (
                 <button
                   type="button"
                   onClick={onOpenAddModal}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs shadow-lg shadow-brand-500/25 active:scale-95 transition-all"
+                  className="min-h-[44px] inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs shadow-lg shadow-brand-500/25 active:scale-95 transition-all"
                 >
                   <Plus className="w-4 h-4" />
                   ثبت اولین ورزشکار
@@ -534,7 +577,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                           }
                         }}
                       >
-                        {/* Swipe Quick Action Shortcuts (Cleanly docked on the left in RTL) */}
+                        {/* Swipe Quick Action Shortcuts (Cleanly docked on the left in RTL, 44x44px touch targets) */}
                         {isSwiped && (
                           <div
                             className="absolute inset-y-0 left-0 flex items-center px-3 gap-2 bg-slate-100 dark:bg-darkSubtle z-0"
@@ -542,28 +585,27 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                           >
                             <a
                               href={`tel:${ath.mobileNumber}`}
-                              className="w-9 h-9 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
-                              title="تماس تلفنی"
+                              className="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
+                              aria-label="تماس تلفنی"
                             >
-                              <Phone className="w-4 h-4" />
+                              <Phone className="w-5 h-5" />
                             </a>
                             <a
                               href={`sms:${ath.mobileNumber}`}
-                              className="w-9 h-9 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
-                              title="ارسال پیامک"
+                              className="w-11 h-11 rounded-2xl bg-blue-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
+                              aria-label="ارسال پیامک"
                             >
-                              <MessageSquare className="w-4 h-4" />
+                              <MessageSquare className="w-5 h-5" />
                             </a>
                             <button
                               type="button"
                               onClick={() => {
-                                setSwipedAthleteId(null);
-                                onDeleteAthlete(ath);
+                                setAthleteToDelete(ath);
                               }}
-                              className="w-9 h-9 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
-                              title="حذف"
+                              className="w-11 h-11 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md active:scale-90 transition-transform"
+                              aria-label="حذف ورزشکار"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
                         )}
@@ -573,7 +615,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                           layout
                           whileTap={{ scale: 0.985 }}
                           drag="x"
-                          dragConstraints={{ left: -140, right: 0 }}
+                          dragConstraints={{ left: -155, right: 0 }}
                           onDragEnd={(_, info) => {
                             if (info.offset.x < -40) {
                               setSwipedAthleteId(ath.id);
@@ -581,7 +623,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                               setSwipedAthleteId(null);
                             }
                           }}
-                          animate={{ x: isSwiped ? -135 : 0 }}
+                          animate={{ x: isSwiped ? -150 : 0 }}
                           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
                           className={`relative z-10 flex items-center justify-between px-4 py-3.5 bg-white dark:bg-darkCard cursor-pointer hover:bg-slate-50 dark:hover:bg-darkSubtle/60 transition-colors ${
                             isNew ? 'animate-flash-highlight' : ''
@@ -619,7 +661,6 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                                       ? 'bg-rose-500 ring-2 ring-rose-500/20 animate-pulse'
                                       : 'bg-emerald-500 ring-2 ring-emerald-500/20'
                                   }`}
-                                  title={hasDebt ? 'دارای بدهی' : 'تسویه کامل'}
                                 />
 
                                 {hasDebt ? (
@@ -634,8 +675,8 @@ export const AthleteList: React.FC<AthleteListProps> = ({
 
                                 <span className="text-slate-300 dark:text-slate-600">•</span>
 
-                                <span className="text-xs text-slate-500 dark:text-slate-400 font-mono tracking-tight">
-                                  {toPersianDigits(ath.mobileNumber)}
+                                <span className="text-xs text-slate-500 dark:text-slate-400 tracking-tight">
+                                  <bdi dir="ltr">{toPersianDigits(ath.mobileNumber)}</bdi>
                                 </span>
                               </div>
                             </div>
@@ -644,11 +685,13 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                           {/* Right: Trailing date (WhatsApp style timestamp) */}
                           <div className="flex flex-col items-end gap-1 shrink-0 pr-2">
                             <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                              {toPersianDigits(
-                                ath.registrationDate.split('/')[1] +
-                                  '/' +
-                                  ath.registrationDate.split('/')[2]
-                              )}
+                              <bdi dir="ltr">
+                                {toPersianDigits(
+                                  ath.registrationDate.split('/')[1] +
+                                    '/' +
+                                    ath.registrationDate.split('/')[2]
+                                )}
+                              </bdi>
                             </span>
                             <div className="flex items-center gap-1">
                               {ath.attendances && ath.attendances.length > 0 && (
@@ -671,7 +714,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
           )}
         </div>
 
-        {/* Quick Scroll Alphabet Index Bar with Large Touch Targets (min 32px height) */}
+        {/* Quick Scroll Alphabet Index Bar with Large Touch Targets (min 36px height) */}
         {availableLetters.length > 1 && (
           <div className="w-8 py-3 flex flex-col items-center justify-start shrink-0 z-20 sticky top-16 right-0 select-none bg-white/70 dark:bg-darkCard/70 backdrop-blur-md rounded-l-2xl border-l border-y border-slate-200/50 dark:border-darkBorder/50 shadow-sm my-2">
             {availableLetters.map((letter) => {
@@ -684,7 +727,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                     e.stopPropagation();
                     scrollToLetter(letter);
                   }}
-                  className={`w-7 h-8 my-0.5 rounded-lg flex items-center justify-center text-xs font-black transition-all ${
+                  className={`w-7 h-9 my-0.5 rounded-lg flex items-center justify-center text-xs font-black transition-all ${
                     isActive
                       ? 'bg-brand-500 text-white scale-125 shadow-md shadow-brand-500/30'
                       : 'text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 active:scale-110'
@@ -713,7 +756,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* Floating Action Button (Cleanly contained INSIDE mobile frame only when roster has athletes) */}
+      {/* Floating Action Button (Cleanly contained INSIDE mobile frame only when roster has athletes, min 56x56px) */}
       {athletes.length > 0 && (
         <motion.button
           type="button"
@@ -721,11 +764,58 @@ export const AthleteList: React.FC<AthleteListProps> = ({
           whileTap={{ scale: 0.92 }}
           onClick={onOpenAddModal}
           aria-label="افزودن ورزشکار جدید"
-          className="absolute bottom-5 left-5 z-20 w-13 h-13 rounded-full bg-gradient-to-tr from-brand-600 via-brand-500 to-amber-500 text-white shadow-xl shadow-brand-500/35 flex items-center justify-center focus:outline-none ring-4 ring-white/80 dark:ring-darkBg/80"
+          className="absolute bottom-5 left-5 z-20 w-14 h-14 rounded-full bg-gradient-to-tr from-brand-600 via-brand-500 to-amber-500 text-white shadow-xl shadow-brand-500/35 flex items-center justify-center focus:outline-none ring-4 ring-white/80 dark:ring-darkBg/80"
         >
           <Plus className="w-6 h-6 stroke-[2.5]" />
         </motion.button>
       )}
+
+      {/* Delete Confirmation Modal for Swipe Action */}
+      <AnimatePresence>
+        {athleteToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white dark:bg-darkCard border border-slate-200 dark:border-darkBorder rounded-3xl p-5 max-w-xs w-full shadow-2xl space-y-4 text-center"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center mx-auto border border-rose-500/20">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  حذف پرونده ورزشکار
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  آیا از حذف پرونده {athleteToDelete.firstName} {athleteToDelete.lastName} اطمینان دارید؟ تمام سوابق پرداخت و حضور و غیاب وی حذف خواهند شد.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAthleteToDelete(null)}
+                  className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-200 transition-colors"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ath = athleteToDelete;
+                    setAthleteToDelete(null);
+                    setSwipedAthleteId(null);
+                    onDeleteAthlete(ath);
+                  }}
+                  className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold shadow-md shadow-rose-500/20 transition-colors"
+                >
+                  بله، حذف کن
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

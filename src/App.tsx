@@ -25,12 +25,12 @@ export const App: React.FC = () => {
     const data = getStoredAthletes();
     setAthletes(data);
 
-    // Show new version v1.2.0 update notification to users
-    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_2_update');
+    // Show new version v1.3.0 update notification to users
+    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_3_update');
     if (!hasSeenUpdate) {
       const timer = setTimeout(() => {
         setIsUpdateNotificationOpen(true);
-        sessionStorage.setItem('hirad_seen_v1_2_update', 'true');
+        sessionStorage.setItem('hirad_seen_v1_3_update', 'true');
       }, 600);
       return () => clearTimeout(timer);
     }
@@ -140,6 +140,21 @@ export const App: React.FC = () => {
     );
   };
 
+  const handleUndoAttendance = (athleteId: string, attendanceId: string) => {
+    const updatedList = athletes.map((a) => {
+      if (a.id === athleteId) {
+        return {
+          ...a,
+          attendances: (a.attendances || []).filter((att) => att.id !== attendanceId),
+          lastUpdated: new Date().toISOString(),
+        };
+      }
+      return a;
+    });
+    updateAthletes(updatedList);
+    showToast('info', 'ثبت حضور با موفقیت لغو شد ↩️');
+  };
+
   const handleUpdateSingleAthlete = (updated: Athlete) => {
     const updatedList = athletes.map((a) => (a.id === updated.id ? updated : a));
     updateAthletes(updatedList);
@@ -231,8 +246,10 @@ export const App: React.FC = () => {
           onClose={() => setIsAttendanceOpen(false)}
           athletes={athletes}
           onRecordAttendance={handleRecordAttendance}
+          onUndoAttendance={handleUndoAttendance}
           onRegisterNewAthlete={(prefilledNatId) => {
-            setEditingAthlete(null);
+            setEditingAthlete(prefilledNatId ? ({ nationalId: prefilledNatId } as any) : null);
+            setIsAttendanceOpen(false);
             setIsRegistrationOpen(true);
           }}
         />
@@ -241,8 +258,8 @@ export const App: React.FC = () => {
         <UpdateNotificationModal
           isOpen={isUpdateNotificationOpen}
           onClose={() => setIsUpdateNotificationOpen(false)}
-          currentVersion="1.1.0"
-          newVersion="1.2.0"
+          currentVersion="1.2.0"
+          newVersion="1.3.0"
         />
 
         {/* Global Toast Messages */}

@@ -1,4 +1,5 @@
 import { Athlete } from '../types/athlete';
+import { getTodayJalali } from './jalali';
 
 const STORAGE_KEY = 'hirad_fitness_athletes_v2';
 
@@ -21,7 +22,7 @@ export function getStoredAthletes(): Athlete[] {
         ? [
             {
               id: 'init-payment-' + ath.id,
-              date: ath.registrationDate || '۱۴۰۳/۰۱/۰۱',
+              date: ath.registrationDate || getTodayJalali().formatted,
               amount: ath.tuitionPaid,
               type: 'payment',
               title: 'پرداخت اولیه هنگام ثبت‌نام',

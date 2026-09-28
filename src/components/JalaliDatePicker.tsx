@@ -16,6 +16,7 @@ import {
   getTodayJalali,
   getDaysInJalaliMonth,
   jalaliToGregorian,
+  gregorianToJalali,
   formatJalaliPretty,
 } from '../utils/jalali';
 
@@ -132,6 +133,16 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
     setSelectedYear(today.year);
     setSelectedMonth(today.month);
     setSelectedDay(today.day);
+    setViewMode('days');
+  };
+
+  const handleSetYesterday = () => {
+    const now = new Date();
+    now.setDate(now.getDate() - 1);
+    const { jy, jm, jd } = gregorianToJalali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    setSelectedYear(jy);
+    setSelectedMonth(jm);
+    setSelectedDay(jd);
     setViewMode('days');
   };
 
@@ -435,14 +446,23 @@ export const JalaliDatePicker: React.FC<JalaliDatePickerProps> = ({
 
             {/* Footer Actions */}
             <div className="p-3 border-t border-slate-100 dark:border-darkBorder/60 bg-slate-50/60 dark:bg-darkSubtle/40 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                onClick={handleSetToday}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-950/40 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                امروز
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleSetToday}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50/70 dark:bg-brand-950/40 hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  امروز
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSetYesterday}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-darkBorder hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  دیروز
+                </button>
+              </div>
 
               <div className="flex items-center gap-2">
                 <button

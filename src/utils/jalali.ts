@@ -177,6 +177,21 @@ export function getTodayJalali(): { year: number; month: number; day: number; fo
 }
 
 /**
+ * Formats a Jalali date string (YYYY/MM/DD) into a standard Persian digit date:
+ * e.g. "1405/07/05" -> "۱۴۰۵/۰۷/۰۵"
+ */
+export function formatJalaliDate(dateStr: string | undefined | null): string {
+  if (!dateStr) return '';
+  const clean = toEnglishDigits(String(dateStr).trim());
+  const parts = clean.split(/[\/\-]/);
+  if (parts.length < 3) return toPersianDigits(dateStr);
+  const y = parts[0];
+  const m = parts[1].padStart(2, '0');
+  const d = parts[2].padStart(2, '0');
+  return `${toPersianDigits(y)}/${toPersianDigits(m)}/${toPersianDigits(d)}`;
+}
+
+/**
  * Formats a Jalali date string (YYYY/MM/DD) into a friendly Persian text
  * e.g. "۱۴ خرداد ۱۳۷۸"
  */

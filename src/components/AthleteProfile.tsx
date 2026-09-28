@@ -27,7 +27,12 @@ import {
 } from 'lucide-react';
 import { Athlete, PaymentRecord, AttendanceRecord } from '../types/athlete';
 import { Avatar } from './Avatar';
-import { formatCurrencyToman, formatNumberInput, parseNumberInput } from '../utils/validation';
+import {
+  formatCurrencyToman,
+  formatSignedCurrencyToman,
+  formatNumberInput,
+  parseNumberInput,
+} from '../utils/currency';
 import {
   formatJalaliPretty,
   calculateAge,
@@ -36,6 +41,13 @@ import {
   getTodayJalali,
   toEnglishDigits,
 } from '../utils/jalali';
+import { JalaliDatePicker } from './JalaliDatePicker';
+
+const WhatsAppIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L0 24l6.335-1.662c1.746.953 3.71 1.456 5.711 1.457h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+  </svg>
+);
 
 interface AthleteProfileProps {
   athlete: Athlete;
@@ -54,13 +66,16 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
 }) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [showAddChargeModal, setShowAddChargeModal] = useState(false);
   const [showAddAttendanceModal, setShowAddAttendanceModal] = useState(false);
+  const [activeDatePicker, setActiveDatePicker] = useState<'payment' | 'attendance' | null>(null);
 
   // New Payment Form States
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [paymentTitle, setPaymentTitle] = useState('واریز شهریه باشگاه');
+  const [paymentMethodChip, setPaymentMethodChip] = useState<string>('کارت‌به‌کارت');
+  const [paymentTitle, setPaymentTitle] = useState('کارت‌به‌کارت');
   const [paymentDate, setPaymentDate] = useState(() => getTodayJalali().formatted);
   const [paymentNote, setPaymentNote] = useState('');
 
@@ -198,9 +213,10 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
     setShowAddChargeModal(false);
   };
 
-  // Delete a payment/charge transaction
-  const handleDeleteTransaction = (txId: string) => {
-    const tx = payments.find((p) => p.id === txId);
+  // Confirm and delete transaction
+  const confirmDeleteTransaction = () => {
+    if (!transactionToDelete) return;
+    const tx = payments.find((p) => p.id === transactionToDelete);
     if (!tx) return;
 
     let newPaid = athlete.tuitionPaid || 0;
@@ -217,11 +233,12 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
       ...athlete,
       tuitionPaid: newPaid,
       tuitionUnpaid: newUnpaid,
-      payments: payments.filter((p) => p.id !== txId),
+      payments: payments.filter((p) => p.id !== transactionToDelete),
       lastUpdated: new Date().toISOString(),
     };
 
     onUpdate(updated);
+    setTransactionToDelete(null);
   };
 
   // Add attendance session
@@ -377,14 +394,14 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
           <div className="flex items-center justify-center gap-3 mt-6 w-full max-w-xs">
             <a
               href={`tel:${athlete.mobileNumber}`}
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs shadow-md shadow-emerald-500/25 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+              className="flex-1 h-11 px-3 rounded-2xl border-2 border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-bold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-all"
             >
               <Phone className="w-4 h-4" />
               تماس
             </a>
             <a
               href={`sms:${athlete.mobileNumber}`}
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-xs shadow-md shadow-blue-500/25 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+              className="flex-1 h-11 px-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
             >
               <MessageSquare className="w-4 h-4" />
               پیامک
@@ -393,9 +410,9 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
               href={`https://wa.me/98${athlete.mobileNumber.replace(/^0/, '')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex-1 py-2.5 px-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-md shadow-green-500/25 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+              className="flex-1 h-11 px-3 rounded-2xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold text-xs shadow-md shadow-emerald-500/25 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
             >
-              <Send className="w-4 h-4" />
+              <WhatsAppIcon className="w-4 h-4" />
               واتساپ
             </a>
           </div>
@@ -413,28 +430,28 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
             variants={itemVariants}
             className="p-4 rounded-3xl bg-white dark:bg-darkCard border border-slate-200/80 dark:border-darkBorder shadow-sm space-y-4"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-darkBorder/60">
+            <div className="pb-3 border-b border-slate-100 dark:border-darkBorder/60 space-y-3">
               <div className="flex items-center gap-2">
                 <Coins className="w-4 h-4 text-brand-500" />
-                <h3 className="text-xs font-black uppercase text-slate-700 dark:text-slate-200">
+                <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">
                   وضعیت مالی و شهریه
                 </h3>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setShowAddPaymentModal(true)}
-                  className="px-2.5 py-1 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all"
+                  className="h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                   ثبت واریزی جدید
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddChargeModal(true)}
-                  className="px-2.5 py-1 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-[11px] font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-all"
+                  className="h-11 rounded-2xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold shadow-md shadow-brand-500/20 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                   شهریه ماه جدید
                 </button>
               </div>
@@ -459,11 +476,13 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
               <div className={`p-2.5 rounded-2xl border ${
                 hasDebt
                   ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-500/20 text-rose-600 dark:text-rose-400'
-                  : 'bg-slate-50 dark:bg-darkSubtle/50 border-slate-100 dark:border-darkBorder/50 text-slate-500'
+                  : 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
               }`}>
-                <span className="text-[10px] font-bold block mb-1">مانده بدهی:</span>
+                <span className="text-[10px] font-bold block mb-1">
+                  {hasDebt ? 'مانده بدهی:' : 'وضعیت حساب:'}
+                </span>
                 <p className="text-xs font-black">
-                  {hasDebt ? formatCurrencyToman(athlete.tuitionUnpaid) : 'تسویه (۰ تومان)'}
+                  {hasDebt ? formatCurrencyToman(athlete.tuitionUnpaid) : 'بدون بدهی (تسویه)'}
                 </p>
               </div>
             </div>
@@ -506,31 +525,32 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                            <span>تاریخ پرداخت: <strong className="font-mono text-slate-700 dark:text-slate-300">{toPersianDigits(p.date)}</strong></span>
+                            <span>تاریخ: <strong className="text-slate-700 dark:text-slate-300"><bdi dir="ltr">{toPersianDigits(p.date)}</bdi></strong></span>
                             {p.note && <span className="mr-1.5">• {p.note}</span>}
                           </div>
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
                           <div className="text-left">
-                            <span className="text-[10px] text-slate-400 block">مبلغ پرداختی:</span>
+                            <span className="text-[10px] text-slate-400 block">مبلغ:</span>
                             <span
-                              className={`font-mono text-xs font-black ${
+                              className={`text-xs font-black ${
                                 isPayment
                                   ? 'text-emerald-600 dark:text-emerald-400'
                                   : 'text-rose-500'
                               }`}
                             >
-                              {isPayment ? '+' : '-'}{formatCurrencyToman(p.amount)}
+                              <bdi dir="ltr">{isPayment ? '+' : '-'}&nbsp;{formatCurrencyToman(p.amount, false)}&nbsp;تومان</bdi>
                             </span>
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleDeleteTransaction(p.id)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                            onClick={() => setTransactionToDelete(p.id)}
+                            className="w-11 h-11 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center justify-center transition-colors"
                             title="حذف این تراکنش"
+                            aria-label="حذف این تراکنش"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -635,25 +655,27 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
             )}
           </motion.div>
 
-          {/* Section 3: National ID Field with Layout Requirement */}
+          {/* Section 3: Identity & Contact Card */}
           <motion.div
             variants={itemVariants}
-            className="p-4 rounded-3xl bg-white dark:bg-darkCard border border-slate-200/80 dark:border-darkBorder shadow-sm"
+            className="p-4 rounded-3xl bg-white dark:bg-darkCard border border-slate-200/80 dark:border-darkBorder shadow-sm space-y-3"
           >
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-darkBorder/60">
               <CreditCard className="w-4 h-4 text-brand-500" />
-              <span className="text-xs font-black text-slate-600 dark:text-slate-300">
-                کد ملی
-              </span>
+              <h3 className="text-xs font-black uppercase text-slate-700 dark:text-slate-300">
+                اطلاعات هویتی و تماس
+              </h3>
             </div>
 
-            <div className="flex items-center justify-between pt-3">
-              <div className="flex items-center gap-2.5">
-                <span className="font-mono text-base font-bold text-slate-800 dark:text-slate-200 tracking-wider" dir="ltr">
-                  {athlete.nationalId}
+            {/* National ID */}
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 dark:text-slate-400">کد ملی:</span>
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wider">
+                  <bdi dir="ltr">{toPersianDigits(athlete.nationalId)}</bdi>
                 </span>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  <ShieldCheck className="w-3.5 h-3.5" />
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <ShieldCheck className="w-3 h-3" />
                   معتبر
                 </span>
               </div>
@@ -661,10 +683,34 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
               <button
                 type="button"
                 onClick={() => handleCopy(athlete.nationalId, 'nationalId')}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-darkBorder transition-colors"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-darkBorder transition-colors"
                 title="کپی کد ملی"
               >
                 {copiedField === 'nationalId' ? (
+                  <Check className="w-4 h-4 text-emerald-500" />
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+
+            {/* Mobile Number */}
+            <div className="flex items-center justify-between py-1 border-t border-slate-100 dark:border-darkBorder/40">
+              <div className="flex items-center gap-2">
+                <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">موبایل:</span>
+                <span className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-wider">
+                  <bdi dir="ltr">{toPersianDigits(athlete.mobileNumber)}</bdi>
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleCopy(athlete.mobileNumber, 'mobileNumber')}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-100 dark:hover:bg-darkBorder transition-colors"
+                title="کپی شماره موبایل"
+              >
+                {copiedField === 'mobileNumber' ? (
                   <Check className="w-4 h-4 text-emerald-500" />
                 ) : (
                   <Copy className="w-4 h-4" />
@@ -757,53 +803,84 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  مبلغ پرداختی (تومان) *
+                  مبلغ پرداختی <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  dir="ltr"
-                  autoFocus
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(formatNumberInput(e.target.value))}
-                  placeholder="مثلاً ۱,۵۰۰,۰۰۰"
-                  className="w-full text-left py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm font-mono outline-none focus:border-emerald-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    dir="ltr"
+                    autoFocus
+                    value={toPersianDigits(paymentAmount)}
+                    onChange={(e) => setPaymentAmount(formatNumberInput(e.target.value))}
+                    placeholder="۱,۵۰۰,۰۰۰"
+                    className="w-full text-right pr-3.5 pl-14 py-2.5 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm outline-none focus:border-emerald-500 transition-colors"
+                  />
+                  <span className="text-[11px] font-bold text-slate-400 absolute left-3 top-1/2 -translate-y-1/2">
+                    تومان
+                  </span>
+                </div>
                 {paymentAmount && (
                   <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-                    {formatCurrencyToman(parseNumberInput(paymentAmount))}
+                    معادل: {formatCurrencyToman(parseNumberInput(paymentAmount))}
                   </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  تاریخ پرداخت (شمسی) *
+                  تاریخ پرداخت (شمسی) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(toEnglishDigits(e.target.value))}
-                  placeholder="مثلاً ۲۵/۰۶/۱۴۰۵ یا ۱۴۰۵/۰۶/۲۵"
-                  className="w-full text-left py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm font-mono outline-none focus:border-emerald-500"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  پیش‌فرض: {today.formatted} (امکان تایپ تاریخ‌های دلخواه مانند ۲۵/۰۶/۱۴۰۵)
-                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveDatePicker('payment')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between hover:border-emerald-500 transition-colors"
+                >
+                  <span>{formatJalaliPretty(paymentDate)} (<bdi dir="ltr">{toPersianDigits(paymentDate)}</bdi>)</span>
+                  <Calendar className="w-4 h-4 text-emerald-500" />
+                </button>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  شیوه یا عنوان پرداخت
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  شیوه پرداخت
                 </label>
-                <input
-                  type="text"
-                  value={paymentTitle}
-                  onChange={(e) => setPaymentTitle(e.target.value)}
-                  placeholder="کارت به کارت، پوز باشگاه و ..."
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-xs outline-none"
-                />
+                <div className="grid grid-cols-4 gap-1.5 mb-2">
+                  {(['کارت‌به‌کارت', 'پوز باشگاه', 'نقدی', 'سایر'] as const).map((method) => {
+                    const isSelected = paymentMethodChip === method;
+                    return (
+                      <button
+                        key={method}
+                        type="button"
+                        onClick={() => {
+                          setPaymentMethodChip(method);
+                          if (method !== 'سایر') {
+                            setPaymentTitle(method);
+                          } else if (['کارت‌به‌کارت', 'پوز باشگاه', 'نقدی'].includes(paymentTitle)) {
+                            setPaymentTitle('');
+                          }
+                        }}
+                        className={`py-2 px-1 rounded-xl text-xs font-bold transition-all text-center ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-500'
+                            : 'bg-slate-100 dark:bg-darkSubtle text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                        }`}
+                      >
+                        {method}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {paymentMethodChip === 'سایر' && (
+                  <input
+                    type="text"
+                    value={paymentTitle}
+                    onChange={(e) => setPaymentTitle(e.target.value)}
+                    placeholder="عنوان دلخواه پرداخت (مثلاً انتقال شبا، پاداش و ...)"
+                    className="w-full py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-xs outline-none focus:border-emerald-500"
+                  />
+                )}
               </div>
 
               <div>
@@ -870,18 +947,28 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  مبلغ شهریه دوره جدید (تومان) *
+                  مبلغ شهریه دوره جدید <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  dir="ltr"
-                  autoFocus
-                  value={chargeAmount}
-                  onChange={(e) => setChargeAmount(formatNumberInput(e.target.value))}
-                  placeholder="۲,۰۰۰,۰۰۰"
-                  className="w-full text-left py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm font-mono outline-none focus:border-brand-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    dir="ltr"
+                    autoFocus
+                    value={toPersianDigits(chargeAmount)}
+                    onChange={(e) => setChargeAmount(formatNumberInput(e.target.value))}
+                    placeholder="۲,۰۰۰,۰۰۰"
+                    className="w-full text-right pr-3.5 pl-14 py-2.5 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm outline-none focus:border-brand-500 transition-colors"
+                  />
+                  <span className="text-[11px] font-bold text-slate-400 absolute left-3 top-1/2 -translate-y-1/2">
+                    تومان
+                  </span>
+                </div>
+                {chargeAmount && (
+                  <p className="text-[11px] font-bold text-brand-600 dark:text-brand-400 mt-1">
+                    معادل: {formatCurrencyToman(parseNumberInput(chargeAmount))}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -948,15 +1035,16 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  تاریخ شمسی جلسه (مثلاً ۱۴۰۳/۰۷/۰۶)
+                  تاریخ شمسی جلسه *
                 </label>
-                <input
-                  type="text"
-                  dir="ltr"
-                  value={attDate}
-                  onChange={(e) => setAttDate(toEnglishDigits(e.target.value))}
-                  className="w-full text-left py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm font-mono outline-none"
-                />
+                <button
+                  type="button"
+                  onClick={() => setActiveDatePicker('attendance')}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between hover:border-emerald-500 transition-colors"
+                >
+                  <span>{formatJalaliPretty(attDate)} (<bdi dir="ltr">{toPersianDigits(attDate)}</bdi>)</span>
+                  <Calendar className="w-4 h-4 text-emerald-500" />
+                </button>
               </div>
 
               <div>
@@ -966,9 +1054,9 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
                 <input
                   type="text"
                   dir="ltr"
-                  value={attTime}
+                  value={toPersianDigits(attTime)}
                   onChange={(e) => setAttTime(toEnglishDigits(e.target.value))}
-                  className="w-full text-left py-2.5 px-3 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm font-mono outline-none"
+                  className="w-full text-right pr-3.5 pl-3 py-2.5 rounded-xl bg-slate-50 dark:bg-darkSubtle border border-slate-200 dark:border-darkBorder text-sm outline-none"
                 />
               </div>
 
@@ -993,7 +1081,57 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Transaction Confirmation Dialog */}
+      <AnimatePresence>
+        {transactionToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setTransactionToDelete(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-sm bg-white dark:bg-darkCard rounded-3xl p-6 shadow-2xl border border-rose-500/20 z-10 text-center space-y-4"
+              dir="rtl"
+            >
+              <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-500 mx-auto flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white">
+                  حذف تراکنش مالی
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  آیا از حذف این رکورد مالی اطمینان دارید؟ مبالغ به صورت خودکار محاسبه و به‌روزرسانی خواهند شد.
+                </p>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTransactionToDelete(null)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 dark:bg-darkBorder text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteTransaction}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-xs font-bold text-white shadow-md shadow-rose-500/25 transition-colors"
+                >
+                  حذف تراکنش
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Athlete Confirmation Dialog */}
       <AnimatePresence>
         {showDeleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1045,6 +1183,27 @@ export const AthleteProfile: React.FC<AthleteProfileProps> = ({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Jalali Date Pickers for Payment & Attendance */}
+      <JalaliDatePicker
+        isOpen={activeDatePicker === 'payment'}
+        value={paymentDate}
+        title="انتخاب تاریخ پرداخت"
+        minYear={1395}
+        maxYear={today.year + 1}
+        onChange={(d) => setPaymentDate(d)}
+        onClose={() => setActiveDatePicker(null)}
+      />
+
+      <JalaliDatePicker
+        isOpen={activeDatePicker === 'attendance'}
+        value={attDate}
+        title="انتخاب تاریخ جلسه حضور"
+        minYear={1395}
+        maxYear={today.year + 1}
+        onChange={(d) => setAttDate(d)}
+        onClose={() => setActiveDatePicker(null)}
+      />
     </div>
   );
 };
