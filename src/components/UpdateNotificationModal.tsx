@@ -11,6 +11,8 @@ import {
   Camera,
   Smartphone,
   ChevronLeft,
+  Database,
+  Palette,
 } from 'lucide-react';
 
 interface UpdateNotificationModalProps {
@@ -23,41 +25,36 @@ interface UpdateNotificationModalProps {
 export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = ({
   isOpen,
   onClose,
-  currentVersion = '1.2.0',
-  newVersion = '1.3.0',
+  currentVersion = '1.3.0',
+  newVersion = '1.4.0',
 }) => {
   const releaseUrl = 'https://github.com/raza6589his-collab/Hirad_Apk/releases/latest';
 
   const features = [
+    {
+      icon: <Database className="w-4 h-4 text-emerald-500" />,
+      title: 'سیستم جامع پشتیبان‌گیری و بازیابی اطلاعات (Backup & Restore)',
+      desc: 'تهیه نسخه پشتیبان (دانلود فایل یا کپی کد) از تمام پرونده‌های ورزشکاران، سوابق پرداختی و حضور و غیاب، و بازیابی فوری تنها با یک کلیک در صورت تعویض گوشی یا آپدیت.',
+    },
+    {
+      icon: <Palette className="w-4 h-4 text-brand-500" />,
+      title: 'شخصی‌سازی پس‌زمینه باشگاه از گالری و پوسته‌های آماده',
+      desc: 'امکان انتخاب عکس دلخواه از گالری گوشی مربی، یا انتخاب از میان ۶ پوسته جذاب آماده (کربن ورزشی، طلایی هیراد، نئون، سنگ آهن، زمرد و OLED مات) با کنترل میزان شفافیت.',
+    },
     {
       icon: <Sparkles className="w-4 h-4 text-amber-500" />,
       title: 'یکپارچه‌سازی ارقام فارسی در سراسر اپلیکیشن',
       desc: 'نمایش هماهنگ تمام تاریخ‌ها، مبالغ، کدهای ملی، شماره‌های تماس و شمارنده‌ها با اعداد اصیل فارسی (۰۱۲۳۴۵۶۷۸۹).',
     },
     {
-      icon: <Smartphone className="w-4 h-4 text-blue-500" />,
-      title: 'طراحی استاندارد هدر با حداکثر ۴ دکمه لمسی',
-      desc: 'دکمه‌های با ابعاد مناسب ۴۴ پیکسلی و دسترسی مستقیم به حالت شب/روز، به همراه انتقال گزینه‌ها به منوی کشویی.',
-    },
-    {
       icon: <CheckCircle2 className="w-4 h-4 text-teal-500" />,
       title: 'ثبت هوشمند حضور و غیاب با قابلیت لغو (Undo)',
-      desc: 'ثبت خودکار بلافاصله پس از درج ۱۰ رقم کد ملی، نمایش تایمر ۵ ثانیه‌ای لغو، و هشدار عدم ثبت تکراری در همان روز.',
+      desc: 'ثبت ورود بلافاصله پس از درج ۱۰ رقم کد ملی، نمایش تایمر ۵ ثانیه‌ای لغو، و هشدار ثبت تکراری در همان روز.',
     },
     {
-      icon: <UserCheck className="w-4 h-4 text-brand-500" />,
-      title: 'اعتبارسنجی دقیق الگوریتم کد ملی ۱۰ رقمی',
-      desc: 'محاسبه رسمی فرمول ده رقمی کد ملی ایران با پیام راهنما و عدم پذیرش کدهای غیرمعتبر.',
-    },
-    {
-      icon: <CreditCard className="w-4 h-4 text-emerald-500" />,
+      icon: <CreditCard className="w-4 h-4 text-blue-500" />,
       title: 'قالب‌بندی دقیق مبالغ و تفکیک دکمه‌های مالی',
       desc: 'جداسازی سه‌رقمی مبالغ، ایجاد دکمه‌های اختصاصی برای ثبت واریزی و شهریه ماه جدید، و آیکون رسمی واتساپ و تماس.',
-    },
-    {
-      icon: <Calendar className="w-4 h-4 text-purple-500" />,
-      title: 'تقویم جلالی پویا و انتخاب سریع سال‌ها و تاریخ',
-      desc: 'محاسبات پویا بر مبنای تاریخ روز، انتخاب سریع دیروز و امروز، و پرش آسان به دهه‌های مختلف جهت انتخاب تاریخ تولد.',
     },
   ];
 
@@ -80,7 +77,7 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 25 }}
             transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-            className="relative w-full max-w-lg bg-white dark:bg-darkCard rounded-3xl shadow-2xl border border-brand-500/30 overflow-hidden z-10 flex flex-col max-h-[90vh]"
+            className="relative w-full max-w-lg bg-white dark:bg-darkCard rounded-3xl shadow-2xl border border-brand-500/30 overflow-hidden z-10 flex flex-col max-h-[92vh]"
             dir="rtl"
           >
             {/* Header Banner */}
@@ -111,8 +108,25 @@ export const UpdateNotificationModal: React.FC<UpdateNotificationModalProps> = (
 
             {/* Change Log / Features List */}
             <div className="p-5 flex-1 overflow-y-auto space-y-3.5">
+              {/* CRITICAL INSTALL WARNING NOTICE */}
+              <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border-2 border-amber-500/40 text-amber-900 dark:text-amber-200 space-y-2">
+                <div className="flex items-center gap-2 font-black text-xs text-amber-700 dark:text-amber-300">
+                  <span className="text-base">⚠️</span>
+                  <span>توجه بسیار مهم برای نصب نسخه جدید:</span>
+                </div>
+                <p className="text-xs font-bold leading-relaxed">
+                  جهت نصب موفق نسخه جدید، <span className="underline font-black text-rose-600 dark:text-rose-400">حتماً باید ابتدا نسخه فعلی برنامه را از گوشی خود حذف (Uninstall) کنید</span> و سپس فایل نسخه جدید را نصب نمایید.
+                </p>
+                <div className="pt-2 border-t border-amber-500/20 text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-1.5 leading-relaxed">
+                  <span>💡</span>
+                  <span>
+                    <strong>پیشنهاد مربی:</strong> قبل از حذف نسخه فعلی، از منوی ابزارهای برنامه گزینه <strong>«پشتیبان‌گیری (بکاپ)»</strong> را بزنید تا فایل اطلاعات شما ذخیره شده و پس از نصب نسخه جدید در چند ثانیه بازیابی شود.
+                  </span>
+                </div>
+              </div>
+
               <p className="text-xs font-black text-slate-800 dark:text-slate-200">
-                تغییرات و قابلیت‌های جدید اضافه شده به برنامه:
+                قابلیت‌ها و امکانات جدید اضافه شده در این نسخه:
               </p>
 
               <div className="space-y-2.5">

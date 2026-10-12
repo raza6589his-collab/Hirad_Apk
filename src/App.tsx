@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Athlete, AttendanceRecord } from './types/athlete';
-import { getStoredAthletes, saveStoredAthletes } from './utils/storage';
+import {
+  getStoredAthletes,
+  saveStoredAthletes,
+  getStoredBackground,
+  saveStoredBackground,
+  AppBackgroundConfig,
+  PRESET_BACKGROUNDS,
+} from './utils/storage';
 import { AthleteList } from './components/AthleteList';
 import { AthleteProfile } from './components/AthleteProfile';
 import { RegistrationModal } from './components/RegistrationModal';
 import { QuickAttendanceModal } from './components/QuickAttendanceModal';
 import { UpdateNotificationModal } from './components/UpdateNotificationModal';
+import { BackgroundModal } from './components/BackgroundModal';
+import { BackupModal } from './components/BackupModal';
 import { Toast, ToastMessage } from './components/Toast';
 import confetti from 'canvas-confetti';
 
@@ -17,20 +26,24 @@ export const App: React.FC = () => {
   const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null);
   const [isAttendanceOpen, setIsAttendanceOpen] = useState(false);
   const [isUpdateNotificationOpen, setIsUpdateNotificationOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isBackgroundOpen, setIsBackgroundOpen] = useState(false);
+  const [backgroundConfig, setBackgroundConfig] = useState<AppBackgroundConfig>(getStoredBackground());
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [newlyAddedId, setNewlyAddedId] = useState<string | null>(null);
 
-  // Load athletes from local storage on mount
+  // Load athletes and background from local storage on mount
   useEffect(() => {
     const data = getStoredAthletes();
     setAthletes(data);
+    setBackgroundConfig(getStoredBackground());
 
-    // Show new version v1.3.0 update notification to users
-    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_3_update');
+    // Show new version v1.4.0 update notification to users
+    const hasSeenUpdate = sessionStorage.getItem('hirad_seen_v1_4_update');
     if (!hasSeenUpdate) {
       const timer = setTimeout(() => {
         setIsUpdateNotificationOpen(true);
-        sessionStorage.setItem('hirad_seen_v1_3_update', 'true');
+        sessionStorage.setItem('hirad_seen_v1_4_update', 'true');
       }, 600);
       return () => clearTimeout(timer);
     }
@@ -175,6 +188,21 @@ export const App: React.FC = () => {
     showToast('info', 'لیست ورزشکاران به‌روزرسانی شد');
   };
 
+  const activePreset =
+    backgroundConfig.type === 'preset'
+      ? PRESET_BACKGROUNDS.find((p) => p.id === backgroundConfig.presetId)
+      : null;
+
+  const backgroundStyle: React.CSSProperties = {};
+  if (backgroundConfig.type === 'preset' && activePreset) {
+    backgroundStyle.background = activePreset.style;
+  } else if (backgroundConfig.type === 'custom' && backgroundConfig.customDataUrl) {
+    backgroundStyle.backgroundImage = `url("${backgroundConfig.customDataUrl}")`;
+    backgroundStyle.backgroundSize = 'cover';
+    backgroundStyle.backgroundPosition = 'center';
+    backgroundStyle.backgroundRepeat = 'no-repeat';
+  }
+
   return (
     <div
       className="min-h-screen bg-slate-950 flex justify-center items-center font-vazir antialiased selection:bg-brand-500 selection:text-white"
@@ -182,6 +210,19 @@ export const App: React.FC = () => {
     >
       {/* Mobile Frame Container: native on mobile phone, elegantly framed on desktop */}
       <main className="w-full h-screen sm:h-[94vh] sm:max-w-md sm:rounded-[40px] sm:shadow-2xl overflow-hidden relative flex flex-col bg-white dark:bg-darkBg sm:border-8 sm:border-slate-800 transition-colors">
+        {/* Dynamic Custom/Preset Background Layer */}
+        {backgroundConfig.type !== 'default' && (
+          <div
+            className="absolute inset-0 pointer-events-none z-0 transition-all duration-500"
+            style={backgroundStyle}
+          >
+            <div
+              className="absolute inset-0 bg-black pointer-events-none transition-opacity duration-300"
+              style={{ opacity: backgroundConfig.overlayOpacity }}
+            />
+          </div>
+        )}
+
         <AnimatePresence initial={false}>
           {currentAthlete ? (
             <motion.div
@@ -190,7 +231,7 @@ export const App: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.22 }}
-              className="h-full flex flex-col absolute inset-0 z-20 bg-white dark:bg-darkBg"
+              className="h-full flex flex-col absolute inset-0 z-20 bg-white/95 dark:bg-darkBg/90 backdrop-blur-sm"
             >
               <AthleteProfile
                 athlete={currentAthlete}
@@ -210,7 +251,7 @@ export const App: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.22 }}
-              className="h-full flex flex-col absolute inset-0 z-10 bg-white dark:bg-darkBg"
+              className="h-full flex flex-col absolute inset-0 z-10 bg-white/95 dark:bg-darkBg/90 backdrop-blur-sm"
             >
               <AthleteList
                 athletes={athletes}
@@ -222,6 +263,8 @@ export const App: React.FC = () => {
                 onDeleteAthlete={handleDeleteAthlete}
                 onOpenAttendance={() => setIsAttendanceOpen(true)}
                 onOpenUpdates={() => setIsUpdateNotificationOpen(true)}
+                onOpenBackup={() => setIsBackupOpen(true)}
+                onOpenBackground={() => setIsBackgroundOpen(true)}
                 newlyAddedId={newlyAddedId}
                 onRefresh={handleRefresh}
               />
@@ -254,12 +297,36 @@ export const App: React.FC = () => {
           }}
         />
 
+        {/* Background Customizer Modal */}
+        <BackgroundModal
+          isOpen={isBackgroundOpen}
+          onClose={() => setIsBackgroundOpen(false)}
+          currentConfig={backgroundConfig}
+          onSaveConfig={(newConfig) => {
+            setBackgroundConfig(newConfig);
+            saveStoredBackground(newConfig);
+            showToast('success', 'پس‌زمینه اختصاصی باشگاه با موفقیت تنظیم و ذخیره شد');
+          }}
+        />
+
+        {/* Backup & Recovery Modal */}
+        <BackupModal
+          isOpen={isBackupOpen}
+          onClose={() => setIsBackupOpen(false)}
+          athletes={athletes}
+          onAthletesRestored={(restoredList) => {
+            setAthletes(restoredList);
+            setBackgroundConfig(getStoredBackground());
+          }}
+          onShowToast={showToast}
+        />
+
         {/* In-App New Version Update Notification Modal */}
         <UpdateNotificationModal
           isOpen={isUpdateNotificationOpen}
           onClose={() => setIsUpdateNotificationOpen(false)}
-          currentVersion="1.2.0"
-          newVersion="1.3.0"
+          currentVersion="1.3.0"
+          newVersion="1.4.0"
         />
 
         {/* Global Toast Messages */}

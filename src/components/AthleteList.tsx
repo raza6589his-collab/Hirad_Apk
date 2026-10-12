@@ -18,6 +18,8 @@ import {
   AlertCircle,
   Sparkles,
   History,
+  Database,
+  Palette,
 } from 'lucide-react';
 import { Athlete, SortOption, PaymentFilter } from '../types/athlete';
 import { Avatar } from './Avatar';
@@ -32,6 +34,8 @@ interface AthleteListProps {
   onDeleteAthlete: (athlete: Athlete) => void;
   onOpenAttendance?: () => void;
   onOpenUpdates?: () => void;
+  onOpenBackup?: () => void;
+  onOpenBackground?: () => void;
   newlyAddedId: string | null;
   onRefresh: () => Promise<void>;
 }
@@ -51,6 +55,8 @@ export const AthleteList: React.FC<AthleteListProps> = ({
   onDeleteAthlete,
   onOpenAttendance,
   onOpenUpdates,
+  onOpenBackup,
+  onOpenBackground,
   newlyAddedId,
   onRefresh,
 }) => {
@@ -173,7 +179,7 @@ export const AthleteList: React.FC<AthleteListProps> = ({
   return (
     <div
       onClick={() => setSwipedAthleteId(null)}
-      className="flex flex-col h-full bg-slate-50 dark:bg-darkBg text-slate-900 dark:text-white relative select-none"
+      className="flex flex-col h-full bg-slate-50/90 dark:bg-darkBg/90 backdrop-blur-sm text-slate-900 dark:text-white relative select-none"
     >
       {/* Top App Bar - Fixed, Non-shifting with EXACTLY 4 Visible Controls */}
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-darkCard/95 border-b border-slate-200/80 dark:border-darkBorder backdrop-blur-md px-3 sm:px-4 py-2.5 sm:py-3 shadow-sm transition-colors">
@@ -457,6 +463,46 @@ export const AthleteList: React.FC<AthleteListProps> = ({
                 ابزارها و عملیات:
               </span>
               <div className="flex flex-col gap-1.5">
+                {/* Backup & Recovery Button */}
+                {onOpenBackup && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSortMenuOpen(false);
+                      onOpenBackup();
+                    }}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 text-xs font-bold flex items-center justify-between border border-emerald-500/20 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Database className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>پشتیبان‌گیری و بازیابی اطلاعات (بکاپ)</span>
+                    </div>
+                    <span className="text-[10px] bg-emerald-600 text-white font-extrabold px-1.5 py-0.5 rounded-md">
+                      ایمن‌سازی
+                    </span>
+                  </button>
+                )}
+
+                {/* Custom Background Theme Button */}
+                {onOpenBackground && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSortMenuOpen(false);
+                      onOpenBackground();
+                    }}
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-darkSubtle hover:bg-slate-200 dark:hover:bg-darkBorder text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center justify-between transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-4 h-4 text-brand-500" />
+                      <span>شخصی‌سازی پس‌زمینه باشگاه</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-normal">
+                      گالری و پوسته‌ها
+                    </span>
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={async () => {
